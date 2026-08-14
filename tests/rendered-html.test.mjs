@@ -183,6 +183,14 @@ test("removes the disposable starter and uses product metadata", async () => {
     styles,
     /\.improvement-rounds input:checked \+ span \{[\s\S]*?background: var\(--surface\)/,
   );
+  assert.match(
+    styles,
+    /\.improvement-buttons \{[\s\S]*?minmax\(0, 0\.65fr\)[\s\S]*?minmax\(0, 1\.5fr\)/,
+  );
+  assert.match(
+    styles,
+    /@media \(min-width: 681px\) and \(max-width: 1040px\)[\s\S]*?\.improvement-networking \{[\s\S]*?grid-column: 1 \/ -1/,
+  );
   assert.doesNotMatch(styles, /\.improvement-rounds label > span::before/);
   assert.match(styles, /@keyframes dc-block-arrive/);
   assert.match(

@@ -3111,7 +3111,10 @@ footer > a:last-child:hover {
 
 .improvement-buttons {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns:
+    minmax(0, 0.65fr)
+    minmax(0, 0.85fr)
+    minmax(0, 1.5fr);
   gap: 6px;
 }
 
@@ -3475,6 +3478,16 @@ footer > a:last-child:hover {
 
 .improvement-networking .improvement-button {
   width: 100%;
+}
+
+@media (min-width: 681px) and (max-width: 1040px) {
+  .improvement-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(205px, 0.7fr);
+  }
+
+  .improvement-networking {
+    grid-column: 1 / -1;
+  }
 }
 
 .lane-north-star {
