@@ -238,6 +238,7 @@ export type RoundImprovement = {
   id: RoundImprovementId;
   label: string;
   shortLabel: string;
+  gainLabel: string;
   strokeClass: string;
   assumption: string;
   sourceUrl: string;
@@ -247,7 +248,8 @@ export const ROUND_IMPROVEMENTS = [
   {
     id: "dc",
     label: "Decoupled consensus · optimistic 4×",
-    shortLabel: "DC · 4×",
+    shortLabel: "DC",
+    gainLabel: "4×",
     strokeClass: "curve-decoupled",
     assumption:
       "Optimistic 4× gain from pipelining finality-gadget attestations into the next slot. This assumes X = 0, with votes cast immediately after fast confirmation to maximize propagation time.",
@@ -257,7 +259,8 @@ export const ROUND_IMPROVEMENTS = [
   {
     id: "eip-8334",
     label: "EIP-8334 · optimistic 2×",
-    shortLabel: "Bundling · 2×",
+    shortLabel: "Bundling",
+    gainLabel: "2×",
     strokeClass: "curve-bundled-propagation",
     assumption:
       "Fixed optimistic 2× throughput sensitivity derived from the proposal's upper bound of 50% lower attestation-subnet bandwidth; this is not yet a measured round-time gain.",
@@ -265,8 +268,9 @@ export const ROUND_IMPROVEMENTS = [
   },
   {
     id: "eip-8243",
-    label: "EIP-8243 · source batching",
+    label: "EIP-8243 · source batching · up to 2×",
     shortLabel: "Source batching",
+    gainLabel: "up to 2×",
     strokeClass: "curve-source-batching",
     assumption:
       "Optimistic 2× source-side gain at 500k validators and above, tapering linearly to 1× at 128k because consolidation already removes repeated source traffic.",

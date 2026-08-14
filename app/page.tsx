@@ -196,7 +196,10 @@ export default function Home() {
       id: improvements.join("+"),
       label: enabledImprovements
         .slice(0, index + 1)
-        .map((candidate) => candidate.shortLabel)
+        .map(
+          (candidate) =>
+            `${candidate.shortLabel} · ${candidate.gainLabel}`,
+        )
         .join(" + "),
       strokeClass:
         index === enabledImprovements.length - 1 && isCombined
@@ -374,7 +377,6 @@ export default function Home() {
               <div className="identity-result">
                 <span>Validator identities</span>
                 <strong>{formatCompactCount(model.validators)}</strong>
-                <small>{formatGain(model.gains.total)} active throughput gain</small>
               </div>
               <div className="slots-result">
                 <span>Slots / round</span>
@@ -447,12 +449,11 @@ export default function Home() {
                     >
                       <i aria-hidden="true" />
                       <span>{improvement.shortLabel}</span>
+                      <b>{improvement.gainLabel}</b>
                       <small>
                         {active
                           ? `Included · ${formatGain(improvementGain)}`
-                          : improvement.id === "eip-8243"
-                            ? "Add · up to 2×"
-                            : "Add"}
+                          : `Add · ${improvement.gainLabel}`}
                       </small>
                     </button>
                   );
@@ -461,9 +462,7 @@ export default function Home() {
             </div>
 
             <fieldset className="improvement-group improvement-rounds">
-              <legend>
-                Finality rounds <small>· select one</small>
-              </legend>
+              <legend>Finality rounds</legend>
               <div>
                 <label>
                   <input

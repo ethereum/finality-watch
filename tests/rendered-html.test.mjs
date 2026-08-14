@@ -68,7 +68,7 @@ test("server-renders the consolidation explorer", async () => {
   assert.doesNotMatch(html, /Garden model · leaf venation|Many independent tips/);
   assert.match(html, /Slot time/);
   assert.match(html, /min="1" max="12" step="1"/);
-  assert.match(html, /Finality rounds[\s\S]*?select one/);
+  assert.match(html, /<legend>Finality rounds<\/legend>/);
   const finalityRadioInputs = [...html.matchAll(/<input\b[^>]*>/g)]
     .map((match) => match[0])
     .filter((tag) => /name="finality-rounds"/.test(tag));
@@ -79,6 +79,7 @@ test("server-renders the consolidation explorer", async () => {
     ["1", "2"],
   );
   assert.equal(finalityRadioInputs.filter((tag) => /checked=""/.test(tag)).length, 1);
+  assert.doesNotMatch(html, /active throughput gain/);
   assert.match(html, /Expected finality[\s\S]*?36 sec/);
   assert.match(html, /Coupled today[\s\S]*?16m 12s[\s\S]*?expected/);
   assert.match(html, /384s × identities ÷ 1\.1M ÷ stacked gain/);
@@ -89,9 +90,10 @@ test("server-renders the consolidation explorer", async () => {
   assert.match(html, /EIP-8243/);
   assert.match(html, /EIP-8334/);
   assert.doesNotMatch(html, /Awaiting measurements/);
-  assert.match(html, /DC · 4×[\s\S]*?Included/);
-  assert.match(html, /Bundling · 2×/);
-  assert.match(html, /Source batching/);
+  assert.match(html, /<span>DC<\/span>[\s\S]*?<b>4×<\/b>[\s\S]*?Included/);
+  assert.match(html, /<span>Bundling<\/span>[\s\S]*?<b>2×<\/b>/);
+  assert.match(html, /<span>Bundling<\/span>[\s\S]*?Add · 2×/);
+  assert.match(html, /<span>Source batching<\/span>[\s\S]*?<b>up to 2×<\/b>[\s\S]*?Add · up to 2×/);
   assert.doesNotMatch(html, /4× source batching/);
   assert.match(html, /34,375[\s\S]*?assigned attesters per current slot/);
   assert.match(html, /Historical workload reference/);
@@ -154,6 +156,9 @@ test("removes the disposable starter and uses product metadata", async () => {
 
   assert.match(page, /api\/network-summary/);
   assert.match(page, /calculateRoundModel/);
+  assert.match(page, /<span>\{improvement\.shortLabel\}<\/span>/);
+  assert.match(page, /<b>\{improvement\.gainLabel\}<\/b>/);
+  assert.match(page, /candidate\.shortLabel[\s\S]*?candidate\.gainLabel/);
   assert.doesNotMatch(page, /tickMs=\{12_000\}/);
   assert.equal((page.match(/tickMs=\{1_000\}/g) ?? []).length, 3);
   assert.match(page, /roundSlots=\{2\}[\s\S]*?finalityRounds=\{1\}/);
@@ -166,6 +171,19 @@ test("removes the disposable starter and uses product metadata", async () => {
   );
   assert.match(styles, /\.model-primary-results \.finality-result \{[\s\S]*?background:/);
   assert.match(styles, /@media \(forced-colors: active\)/);
+  assert.match(
+    styles,
+    /\.improvement-rounds > div \{[\s\S]*?background: var\(--surface-mint\)/,
+  );
+  assert.match(
+    styles,
+    /\.improvement-rounds label > span \{[\s\S]*?min-height: 44px[\s\S]*?border-radius: 10px/,
+  );
+  assert.match(
+    styles,
+    /\.improvement-rounds input:checked \+ span \{[\s\S]*?background: var\(--surface\)/,
+  );
+  assert.doesNotMatch(styles, /\.improvement-rounds label > span::before/);
   assert.match(styles, /@keyframes dc-block-arrive/);
   assert.match(
     page,

@@ -3117,7 +3117,7 @@ footer > a:last-child:hover {
 
 .improvement-button {
   display: grid;
-  grid-template-columns: 21px minmax(0, 1fr);
+  grid-template-columns: 21px minmax(0, 1fr) auto;
   gap: 2px 8px;
   align-items: center;
   min-height: 45px;
@@ -3168,7 +3168,16 @@ footer > a:last-child:hover {
   white-space: nowrap;
 }
 
+.improvement-button b {
+  color: var(--muted);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.61rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .improvement-button small {
+  grid-column: 2 / -1;
   color: var(--muted);
   font-size: 0.6rem;
 }
@@ -3178,8 +3187,8 @@ footer > a:last-child:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
-  background: rgba(247, 242, 232, 0.82);
+  border-radius: 14px;
+  background: var(--surface-mint);
 }
 
 .improvement-rounds {
@@ -3197,12 +3206,6 @@ footer > a:last-child:hover {
   color: var(--muted);
   font-size: 0.64rem;
   font-weight: 680;
-}
-
-.improvement-rounds legend small {
-  color: var(--muted-soft);
-  font-size: 0.58rem;
-  font-weight: 560;
 }
 
 .improvement-rounds label {
@@ -3224,27 +3227,19 @@ footer > a:last-child:hover {
 
 .improvement-rounds label > span {
   display: flex;
-  gap: 7px;
   align-items: center;
   justify-content: center;
-  min-height: 37px;
-  padding: 6px 9px;
+  min-height: 44px;
+  padding: 0 13px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.67rem;
-  font-weight: 630;
-  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
-}
-
-.improvement-rounds label > span::before {
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--muted-soft);
-  border-radius: 50%;
-  content: "";
+  font-size: 0.75rem;
+  font-weight: 590;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .improvement-rounds label:hover > span {
@@ -3254,30 +3249,22 @@ footer > a:last-child:hover {
 .improvement-rounds input:checked + span {
   background: var(--surface);
   color: var(--indigo-dark);
-  box-shadow: 0 3px 10px rgba(72, 66, 51, 0.08);
-}
-
-.improvement-rounds input:checked + span::before {
-  border-color: var(--teal);
-  background: var(--teal);
-  box-shadow: inset 0 0 0 2px var(--surface);
 }
 
 .improvement-rounds input:focus-visible + span {
-  outline: 2px solid var(--teal);
-  outline-offset: 2px;
+  outline: 3px solid var(--indigo);
+  outline-offset: 3px;
 }
 
 @media (forced-colors: active) {
   .improvement-rounds input:checked + span {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
+    border: 2px solid Highlight;
+    outline: none;
   }
 
-  .improvement-rounds input:checked + span::before {
-    border-color: Highlight;
-    background: Highlight;
-    box-shadow: none;
+  .improvement-rounds input:focus-visible + span {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
   }
 }
 
