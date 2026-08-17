@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   description:
     "Explore how consolidation, networking improvements, shorter slots, and one-round finality could shorten Ethereum’s path from inclusion to finality.",
   applicationName: "finality.watch",
+  robots: {
+    index: false,
+    follow: false,
+  },
   keywords: [
     "Ethereum",
     "validator consolidation",

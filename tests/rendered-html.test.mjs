@@ -41,6 +41,10 @@ test("server-renders the consolidation explorer", async () => {
   }
 
   assert.match(html, /<title>finality\.watch — Ethereum finality explorer<\/title>/i);
+  assert.match(
+    html,
+    /<meta name="robots" content="noindex, nofollow"\s*\/?>/i,
+  );
   assert.match(html, /finality<span>\.watch<\/span>/);
   assert.match(html, /Finality explorer/);
   assert.match(html, /<a href="#methodology">Model<\/a>/);
@@ -286,6 +290,7 @@ test("removes the disposable starter and uses product metadata", async () => {
     /scenarioMaximum - Number\(event\.target\.value\)/,
   );
   assert.match(layout, /finality\.watch/);
+  assert.match(layout, /robots:\s*\{[\s\S]*?index: false,[\s\S]*?follow: false/);
   assert.match(layout, /themeColor: "#f7f2e8"/);
   assert.match(layout, /card: "summary_large_image"/);
   assert.match(layout, /\/og-finality\.png/);
