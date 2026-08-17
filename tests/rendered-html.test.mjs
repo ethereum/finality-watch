@@ -80,11 +80,29 @@ test("server-renders the consolidation explorer", async () => {
   );
   assert.equal(finalityRadioInputs.filter((tag) => /checked=""/.test(tag)).length, 1);
   assert.doesNotMatch(html, /active throughput gain/);
-  assert.match(html, /Expected finality[\s\S]*?36 sec/);
-  assert.match(html, /Coupled today[\s\S]*?16m 12s[\s\S]*?expected/);
+  assert.match(html, /Expected finality[\s\S]*?30 sec/);
+  assert.match(html, /Coupled today[\s\S]*?16 min[\s\S]*?expected/);
   assert.match(html, /384s × identities ÷ 1\.1M ÷ stacked gain/);
   assert.match(html, /ceil\(max\(8s, raw\) ÷ slot\) × slot/);
-  assert.match(html, /ceil\(\(½ slot \+ ½ round \+ rounds × round\) ÷ slot\) × slot/);
+  assert.match(html, /½ round \+ rounds × round/);
+  assert.match(html, /Dynamic timing diagram/);
+  assert.match(html, /Transaction arrival → finality/);
+  assert.match(
+    html,
+    /Expected inclusion[\s\S]*?6 sec[\s\S]*?½ ×[\s\S]*?12[\s\S]*?-sec slot/,
+  );
+  assert.match(html, /Additional alignment[\s\S]*?0 sec[\s\S]*?Already at the round boundary/);
+  assert.match(html, /Expected wait to voting[\s\S]*?6 sec/);
+  assert.equal(
+    (html.match(/class="finality-timing-stage is-voting"/g) ?? []).length,
+    2,
+  );
+  assert.match(
+    html,
+    /class="finality-timing-stage is-voting"[\s\S]*?12 sec/,
+  );
+  assert.match(html, /Inclusion and round alignment share one expected half-round wait/);
+  assert.doesNotMatch(html, /round up to [\d.]+ slots/);
   assert.match(html, /One-round finality gadget/);
   assert.match(html, /EIP-8198/);
   assert.match(html, /EIP-8243/);
@@ -165,6 +183,11 @@ test("removes the disposable starter and uses product metadata", async () => {
   assert.doesNotMatch(pipeline, /stagePosition/);
   assert.match(pipeline, /position = config\.headPosition/);
   assert.match(styles, /container-type: inline-size/);
+  assert.match(styles, /\.finality-timing-track \{[\s\S]*?display: flex/);
+  assert.match(
+    styles,
+    /@media \(max-width: 780px\)[\s\S]*?\.finality-timing-track \{[\s\S]*?display: grid/,
+  );
   assert.match(
     styles,
     /grid-template-columns: minmax\(330px, 1\.3fr\) minmax\(205px, 0\.58fr\) minmax\(225px, 0\.72fr\)/,

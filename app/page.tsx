@@ -13,6 +13,7 @@ import {
   calculateRoundModel,
   formatCompactCount,
   formatDuration,
+  type FinalityTiming,
   type RoundImprovementId,
 } from "./lib/model";
 import { DcPipeline } from "./components/DcPipeline";
@@ -63,6 +64,170 @@ function ExternalArrow() {
 
 function formatGain(value: number) {
   return `${Number.isInteger(value) ? value : value.toFixed(1)}×`;
+}
+
+function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
+  const hasAdditionalAlignment = timing.expectedRoundAlignmentSeconds > 0;
+  const votingRounds = Array.from(
+    { length: timing.finalityRounds },
+    (_, index) => index + 1,
+  );
+
+  return (
+    <figure
+      className="finality-timing-diagram"
+      aria-labelledby="finality-timing-title"
+      aria-describedby="finality-timing-description"
+    >
+      <div className="finality-timing-heading">
+        <div>
+          <span>Dynamic timing diagram</span>
+          <h3 id="finality-timing-title">Transaction arrival → finality</h3>
+        </div>
+        <div className="finality-timing-total">
+          <span>Expected total</span>
+          <output aria-live="polite" aria-atomic="true">
+            ≈{formatDuration(timing.totalSeconds)}
+          </output>
+        </div>
+      </div>
+
+      <p className="finality-timing-intro" id="finality-timing-description">
+        Inclusion and round alignment share one expected half-round wait. They
+        are not two independent delays.
+      </p>
+
+      <div className="finality-timing-visual" aria-hidden="true">
+        <div className="finality-timing-track">
+          <div
+            className="finality-timing-stage is-pre-vote"
+            style={{ flexGrow: timing.expectedPreVotingSeconds }}
+          >
+            <span className="finality-timing-milestone">
+              Transaction arrives
+            </span>
+            <div className="finality-timing-stage-heading">
+              <span>Expected wait to voting</span>
+              <strong>{formatDuration(timing.expectedPreVotingSeconds)}</strong>
+            </div>
+            <div className="finality-timing-pre-vote-split">
+              <span
+                className="is-inclusion"
+                style={{ flexGrow: timing.expectedInclusionSeconds }}
+              >
+                <b>Inclusion</b>
+                <em>{formatDuration(timing.expectedInclusionSeconds)}</em>
+              </span>
+              {hasAdditionalAlignment ? (
+                <span
+                  className="is-alignment"
+                  style={{ flexGrow: timing.expectedRoundAlignmentSeconds }}
+                >
+                  <b>Additional alignment</b>
+                  <em>{formatDuration(timing.expectedRoundAlignmentSeconds)}</em>
+                </span>
+              ) : null}
+            </div>
+            <small>
+              {hasAdditionalAlignment
+                ? "Eligible round begins"
+                : "Included · eligible round begins"}
+            </small>
+          </div>
+
+          {votingRounds.map((round) => (
+            <div
+              className="finality-timing-stage is-voting"
+              key={round}
+              style={{ flexGrow: timing.roundSeconds }}
+            >
+              <span className="finality-timing-milestone">
+                {round === 1
+                  ? "Voting starts"
+                  : `Round ${round - 1} complete`}
+              </span>
+              <div className="finality-timing-stage-heading">
+                <span>Voting round {round}</span>
+                <strong>{formatDuration(timing.roundSeconds)}</strong>
+              </div>
+              <div
+                className="finality-timing-slot-grid"
+                style={{ backgroundSize: `${100 / timing.roundSlots}% 100%` }}
+              >
+                <span>
+                  {timing.roundSlots} {timing.roundSlots === 1 ? "slot" : "slots"}
+                </span>
+              </div>
+              <small>
+                {round === timing.finalityRounds
+                  ? "Finality reached"
+                  : `Voting round ${round + 1} begins`}
+              </small>
+            </div>
+          ))}
+          <span className="finality-timing-finish">Finality</span>
+        </div>
+      </div>
+
+      <div className="finality-timing-quantities">
+        <div>
+          <span>Expected inclusion</span>
+          <strong>{formatDuration(timing.expectedInclusionSeconds)}</strong>
+          <small>½ × {timing.slotSeconds}-sec slot</small>
+        </div>
+        <div>
+          <span>Additional alignment</span>
+          <strong>{formatDuration(timing.expectedRoundAlignmentSeconds)}</strong>
+          <small>
+            {hasAdditionalAlignment
+              ? `½ × (${timing.roundSeconds}s round − ${timing.slotSeconds}s slot)`
+              : "Already at the round boundary"}
+          </small>
+        </div>
+        <div>
+          <span>Full-set round</span>
+          <strong>{formatDuration(timing.roundSeconds)}</strong>
+          <small>
+            {timing.roundSlots} × {timing.slotSeconds}-sec{" "}
+            {timing.roundSlots === 1 ? "slot" : "slots"}
+          </small>
+        </div>
+        <div>
+          <span>Voting budget</span>
+          <strong>{formatDuration(timing.votingSeconds)}</strong>
+          <small>
+            {timing.finalityRounds} × {formatDuration(timing.roundSeconds)} round
+            {timing.finalityRounds === 1 ? "" : "s"}
+          </small>
+        </div>
+      </div>
+
+      <figcaption>
+        <span>Expected finality</span>
+        <strong>
+          ½ round wait + {timing.finalityRounds} voting{" "}
+          {timing.finalityRounds === 1 ? "round" : "rounds"}
+          {" = "}
+          {formatDuration(timing.totalSeconds)}
+        </strong>
+        <small>
+          Timeline widths are schematic; the labels show exact values.
+        </small>
+      </figcaption>
+
+      <p className="sr-only">
+        A transaction waits an expected{" "}
+        {formatDuration(timing.expectedInclusionSeconds)} for inclusion and{" "}
+        {formatDuration(timing.expectedRoundAlignmentSeconds)} of additional
+        round alignment. Together that is one expected half-round, or{" "}
+        {formatDuration(timing.expectedPreVotingSeconds)}. Then{" "}
+        {timing.finalityRounds} voting{" "}
+        {timing.finalityRounds === 1 ? "round" : "rounds"} of{" "}
+        {formatDuration(timing.roundSeconds)} each produce expected finality in{" "}
+        {formatDuration(timing.totalSeconds)}.
+      </p>
+    </figure>
+  );
 }
 
 export default function Home() {
@@ -397,8 +562,11 @@ export default function Home() {
                 <span>Expected finality</span>
                 <strong>≈{formatDuration(finalityTiming.totalSeconds)}</strong>
                 <small>
-                  {finalityTiming.totalSlots} slots total ·{" "}
-                  {finalityTiming.finalityRounds === 1 ? "one round" : "two rounds"}
+                  {finalityTiming.finalityRounds === 1 ? "one" : "two"} voting{" "}
+                  {finalityTiming.finalityRounds === 1 ? "round" : "rounds"}
+                  {" · "}
+                  {model.roundSlots}{" "}
+                  {model.roundSlots === 1 ? "slot" : "slots"} / round
                 </small>
               </div>
             </div>
@@ -507,7 +675,7 @@ export default function Home() {
                 <span>12 sec today</span>
                 <span>1 sec exploratory</span>
               </div>
-              <small>Changes slot count and inclusion—not FG throughput</small>
+              <small>Sets block cadence and round granularity—not FG throughput</small>
             </div>
           </div>
 
@@ -725,23 +893,27 @@ export default function Home() {
             aria-label="Expected finality formula"
           >
             <div className="finality-equation">
-              <span>{formatDuration(finalityTiming.expectedInclusionSeconds)} inclusion</span>
-              <i aria-hidden="true">+</i>
-              <span>{formatDuration(finalityTiming.expectedRoundAlignmentSeconds)} alignment</span>
+              <span>
+                {formatDuration(finalityTiming.expectedPreVotingSeconds)} expected
+                wait to voting
+              </span>
               <i aria-hidden="true">+</i>
               <span>{finalityTiming.finalityRounds} × {formatDuration(finalityTiming.roundSeconds)}</span>
               <i aria-hidden="true">→</i>
-              <span>round up to {finalityTiming.totalSlots} slots</span>
               <strong>= {formatDuration(finalityTiming.totalSeconds)}</strong>
             </div>
+
+            <FinalityTimingDiagram timing={finalityTiming} />
 
             <details className="finality-explainer">
               <summary>How this estimate works <span aria-hidden="true">+</span></summary>
               <p>
-                Expected finality adds half a slot for inclusion, half a round
-                for alignment, and the selected voting rounds, then rounds up to
-                the next slot boundary. Shorter slots reduce that boundary;
-                one-round finality removes one voting round.
+                A transaction arrives uniformly within a slot. Inclusion takes
+                half a slot on average; because inclusion itself lands on a slot
+                boundary, only half of the remaining round contributes to
+                alignment. Together those terms equal half a round. The model
+                assumes a block included at a round boundary can enter that same
+                round; one-round finality then removes one full voting round.
               </p>
             </details>
           </section>
@@ -1000,7 +1172,7 @@ export default function Home() {
 
         <div className="finality-method-equation" aria-label="Expected time-to-finality equation">
           <span>Expected time to finality</span>
-          <strong>ceil((½ slot + ½ round + rounds × round) ÷ slot) × slot</strong>
+          <strong>½ round + rounds × round</strong>
         </div>
 
         <details className="method-details">
@@ -1014,9 +1186,22 @@ export default function Home() {
                 <li>Workload scales linearly with active validator-identity count.</li>
                 <li>A rounded 1.1M-validator, 32-slot epoch is the fixed capacity reference.</li>
                 <li>Shorter slots change slot count and inclusion, not raw FG throughput.</li>
-                <li>Displayed windows round up to whole slots after the eight-second floor.</li>
-                <li>Transactions arrive uniformly, giving an expected half-slot wait.</li>
-                <li>Finality eligibility aligns at round boundaries, giving an expected half-round wait.</li>
+                <li>
+                  Full-set round duration rounds up to whole slots after the
+                  eight-second floor.
+                </li>
+                <li>
+                  Transactions arrive uniformly, giving an expected half-slot
+                  inclusion wait.
+                </li>
+                <li>
+                  Inclusion lands on a slot boundary; the additional alignment
+                  wait is half of the remaining round.
+                </li>
+                <li>
+                  A boundary-slot block is eligible for that same
+                  boundary-aligned voting round.
+                </li>
                 <li>Stake weight is preserved as identities consolidate.</li>
                 <li>Enabled networking gains multiply before the physical floor.</li>
               </ul>
