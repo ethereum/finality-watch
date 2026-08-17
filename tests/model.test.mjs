@@ -27,7 +27,7 @@ test("round model uses the fixed 1.1M workload calibration", () => {
   assert.equal(result.baselineRoundSeconds, 384);
   assert.equal(result.roundSlots, 32);
   assert.equal(result.roundSeconds, 384);
-  assert.equal(result.finality.totalSeconds, 960);
+  assert.equal(result.finality.totalSeconds, 966);
   assert.equal(result.finality.finalityRounds, 2);
   assert.equal(result.validatorReductionFromReference, 0);
   assert.equal(MAX_ASSIGNED_ATTESTERS_PER_SLOT, 131_072);
@@ -110,7 +110,7 @@ test("networking sensitivities stack and source batching fades with consolidatio
   assert.equal(twelveSecondFloor.roundSeconds, 12);
 });
 
-test("expected finality shares one half-round between inclusion and alignment", () => {
+test("expected finality adds half-slot inclusion and an independent half-round gadget wait", () => {
   const current = calculateFinalityTiming(384, 12, 2);
   const consolidated = calculateFinalityTiming(12, 12, 2);
   const oneRound = calculateFinalityTiming(12, 12, 1);
@@ -128,35 +128,36 @@ test("expected finality shares one half-round between inclusion and alignment", 
     roundSeconds: 384,
     finalityRounds: 2,
     expectedInclusionSeconds: 6,
-    expectedRoundAlignmentSeconds: 186,
-    expectedPreVotingSeconds: 192,
+    expectedFinalityGadgetWaitSeconds: 192,
+    expectedPreVotingSeconds: 198,
     votingSeconds: 768,
-    totalSeconds: 960,
+    totalSeconds: 966,
   });
-  assert.equal(consolidated.expectedRoundAlignmentSeconds, 0);
-  assert.equal(consolidated.expectedPreVotingSeconds, 6);
-  assert.equal(consolidated.totalSeconds, 30);
-  assert.equal(oneRound.totalSeconds, 18);
-  assert.equal(unifiedOneRound.finality.totalSeconds, 18);
+  assert.equal(consolidated.expectedFinalityGadgetWaitSeconds, 6);
+  assert.equal(consolidated.expectedPreVotingSeconds, 12);
+  assert.equal(consolidated.totalSeconds, 36);
+  assert.equal(oneRound.totalSeconds, 24);
+  assert.equal(unifiedOneRound.finality.totalSeconds, 24);
   assert.equal(quickSlots.expectedInclusionSeconds, 4);
-  assert.equal(quickSlots.expectedRoundAlignmentSeconds, 24);
-  assert.equal(quickSlots.expectedPreVotingSeconds, 28);
-  assert.equal(quickSlots.totalSeconds, 140);
+  assert.equal(quickSlots.expectedFinalityGadgetWaitSeconds, 28);
+  assert.equal(quickSlots.expectedPreVotingSeconds, 32);
+  assert.equal(quickSlots.totalSeconds, 144);
 
   for (const timing of [current, consolidated, oneRound, quickSlots]) {
     assert.equal(
-      timing.expectedInclusionSeconds + timing.expectedRoundAlignmentSeconds,
+      timing.expectedFinalityGadgetWaitSeconds,
       timing.roundSeconds / 2,
     );
     assert.equal(
       timing.totalSeconds,
-      (timing.finalityRounds + 0.5) * timing.roundSeconds,
+      timing.expectedInclusionSeconds +
+        (timing.finalityRounds + 0.5) * timing.roundSeconds,
     );
   }
 
   const normalizedRound = calculateFinalityTiming(61, 12, 2);
   assert.equal(normalizedRound.roundSlots, 6);
   assert.equal(normalizedRound.roundSeconds, 72);
-  assert.equal(normalizedRound.expectedRoundAlignmentSeconds, 30);
-  assert.equal(normalizedRound.totalSeconds, 180);
+  assert.equal(normalizedRound.expectedFinalityGadgetWaitSeconds, 36);
+  assert.equal(normalizedRound.totalSeconds, 186);
 });

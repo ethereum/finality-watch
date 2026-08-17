@@ -67,7 +67,6 @@ function formatGain(value: number) {
 }
 
 function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
-  const hasAdditionalAlignment = timing.expectedRoundAlignmentSeconds > 0;
   const votingRounds = Array.from(
     { length: timing.finalityRounds },
     (_, index) => index + 1,
@@ -77,11 +76,11 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
     <figure
       className="finality-timing-diagram"
       aria-labelledby="finality-timing-title"
-      aria-describedby="finality-timing-description"
+      aria-describedby="finality-explainer-copy"
     >
       <div className="finality-timing-heading">
         <div>
-          <span>Dynamic timing diagram</span>
+          <span>Dynamic timing diagram · schematic widths</span>
           <h3 id="finality-timing-title">Transaction arrival → finality</h3>
         </div>
         <div className="finality-timing-total">
@@ -91,11 +90,6 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
           </output>
         </div>
       </div>
-
-      <p className="finality-timing-intro" id="finality-timing-description">
-        Inclusion and round alignment share one expected half-round wait. They
-        are not two independent delays.
-      </p>
 
       <div className="finality-timing-visual" aria-hidden="true">
         <div className="finality-timing-track">
@@ -118,21 +112,17 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
                 <b>Inclusion</b>
                 <em>{formatDuration(timing.expectedInclusionSeconds)}</em>
               </span>
-              {hasAdditionalAlignment ? (
-                <span
-                  className="is-alignment"
-                  style={{ flexGrow: timing.expectedRoundAlignmentSeconds }}
-                >
-                  <b>Additional alignment</b>
-                  <em>{formatDuration(timing.expectedRoundAlignmentSeconds)}</em>
-                </span>
-              ) : null}
+              <span
+                className="is-round-wait"
+                style={{ flexGrow: timing.expectedFinalityGadgetWaitSeconds }}
+              >
+                <b>Wait for finality-gadget input</b>
+                <em>
+                  {formatDuration(timing.expectedFinalityGadgetWaitSeconds)}
+                </em>
+              </span>
             </div>
-            <small>
-              {hasAdditionalAlignment
-                ? "Eligible round begins"
-                : "Included · eligible round begins"}
-            </small>
+            <small>Block enters finality-gadget round</small>
           </div>
 
           {votingRounds.map((round) => (
@@ -144,7 +134,9 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
               <span className="finality-timing-milestone">
                 {round === 1
                   ? "Voting starts"
-                  : `Round ${round - 1} complete`}
+                  : round === 2
+                    ? "Justification"
+                    : `Round ${round - 1} complete`}
               </span>
               <div className="finality-timing-stage-heading">
                 <span>Voting round {round}</span>
@@ -169,64 +161,260 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
         </div>
       </div>
 
-      <div className="finality-timing-quantities">
-        <div>
-          <span>Expected inclusion</span>
-          <strong>{formatDuration(timing.expectedInclusionSeconds)}</strong>
-          <small>½ × {timing.slotSeconds}-sec slot</small>
-        </div>
-        <div>
-          <span>Additional alignment</span>
-          <strong>{formatDuration(timing.expectedRoundAlignmentSeconds)}</strong>
-          <small>
-            {hasAdditionalAlignment
-              ? `½ × (${timing.roundSeconds}s round − ${timing.slotSeconds}s slot)`
-              : "Already at the round boundary"}
-          </small>
-        </div>
-        <div>
-          <span>Full-set round</span>
-          <strong>{formatDuration(timing.roundSeconds)}</strong>
-          <small>
-            {timing.roundSlots} × {timing.slotSeconds}-sec{" "}
-            {timing.roundSlots === 1 ? "slot" : "slots"}
-          </small>
-        </div>
-        <div>
-          <span>Voting budget</span>
-          <strong>{formatDuration(timing.votingSeconds)}</strong>
-          <small>
-            {timing.finalityRounds} × {formatDuration(timing.roundSeconds)} round
-            {timing.finalityRounds === 1 ? "" : "s"}
-          </small>
-        </div>
-      </div>
-
-      <figcaption>
-        <span>Expected finality</span>
-        <strong>
-          ½ round wait + {timing.finalityRounds} voting{" "}
-          {timing.finalityRounds === 1 ? "round" : "rounds"}
-          {" = "}
-          {formatDuration(timing.totalSeconds)}
-        </strong>
-        <small>
-          Timeline widths are schematic; the labels show exact values.
-        </small>
-      </figcaption>
-
       <p className="sr-only">
         A transaction waits an expected{" "}
         {formatDuration(timing.expectedInclusionSeconds)} for inclusion and{" "}
-        {formatDuration(timing.expectedRoundAlignmentSeconds)} of additional
-        round alignment. Together that is one expected half-round, or{" "}
-        {formatDuration(timing.expectedPreVotingSeconds)}. Then{" "}
+        an independent {formatDuration(timing.expectedFinalityGadgetWaitSeconds)}
+        before the block becomes input to the finality gadget. Together those
+        waits take {formatDuration(timing.expectedPreVotingSeconds)} on average.
+        Then{" "}
         {timing.finalityRounds} voting{" "}
         {timing.finalityRounds === 1 ? "round" : "rounds"} of{" "}
-        {formatDuration(timing.roundSeconds)} each produce expected finality in{" "}
+        {formatDuration(timing.roundSeconds)} each. {timing.finalityRounds > 1
+          ? "The first completed voting round marks justification. "
+          : ""}
+        Expected finality arrives in{" "}
         {formatDuration(timing.totalSeconds)}.
       </p>
     </figure>
+  );
+}
+
+function MethodologySection() {
+  return (
+    <section
+      className="methodology-section"
+      id="methodology"
+      aria-labelledby="methodology-title"
+    >
+      <h2 className="sr-only" id="methodology-title">Methodology</h2>
+
+      <details className="methodology-disclosure">
+        <summary>
+          <span className="methodology-summary-copy">
+            <span className="methodology-summary-kicker">Methodology</span>
+            <strong>Simplified model—not a forecast.</strong>
+            <small>
+              Safe parameters still depend on protocol and network conditions.
+            </small>
+          </span>
+          <span className="methodology-summary-action">
+            View details <i aria-hidden="true">+</i>
+          </span>
+        </summary>
+        <div className="methodology-content">
+          <div className="equation" aria-label="Model equation">
+            <div>
+              <span>Raw full-set round</span>
+              <strong>{rawRoundEquation}</strong>
+            </div>
+            <span className="equation-arrow" aria-hidden="true">→</span>
+            <div>
+              <span>Displayed round time</span>
+              <strong>{displayedRoundEquation}</strong>
+            </div>
+          </div>
+          <p className="equation-note">
+            DC contributes an optimistic 4× gain, bundled propagation 2×, and
+            source batching 1–2× depending on validator count. Selected gains
+            multiply in this simplified scenario. Slot length never changes
+            the raw finality-vote throughput.
+          </p>
+
+          <div className="capacity-facts" aria-label="Capacity reference points">
+            <div>
+              <span>Historical workload reference</span>
+              <strong>{numberFormatter.format(REFERENCE_ATTESTERS_PER_SLOT)}</strong>
+              <small>assigned attesters per current slot · 1.1M ÷ 32</small>
+            </div>
+            <div>
+              <span>Structural ceiling</span>
+              <strong>{numberFormatter.format(MAX_ASSIGNED_ATTESTERS_PER_SLOT)}</strong>
+              <small>64 committees × 2,048 seats · not measured throughput</small>
+            </div>
+            <div>
+              <span>One-cohort floor</span>
+              <strong>{SINGLE_COHORT_FLOOR_SECONDS} sec</strong>
+              <small>4 sec delivery + 4 sec aggregation</small>
+            </div>
+          </div>
+
+          <div
+            className="slot-phase-model"
+            aria-label="Current 12-second slot timing reference"
+          >
+            <span>Current 12-second slot</span>
+            <div>
+              <strong>0–4s</strong>
+              <small>block propagation + vote target</small>
+            </div>
+            <div>
+              <strong>4–8s</strong>
+              <small>attestation propagation + aggregation</small>
+            </div>
+            <div>
+              <strong>8–12s</strong>
+              <small>global aggregate propagation</small>
+            </div>
+          </div>
+
+          <div
+            className="finality-method-equation"
+            aria-label="Expected time-to-finality equation"
+          >
+            <span>Expected time to finality</span>
+            <strong>½ slot + ½ finality-gadget round + rounds × round</strong>
+          </div>
+
+          <details className="method-details">
+            <summary>
+              Assumptions and limits <span aria-hidden="true">+</span>
+            </summary>
+            <div className="methodology-grid">
+              <div>
+                <h3>The model assumes</h3>
+                <ul>
+                  <li>Workload scales linearly with active validator-identity count.</li>
+                  <li>A rounded 1.1M-validator, 32-slot epoch is the fixed capacity reference.</li>
+                  <li>Shorter slots change slot count and inclusion, not raw FG throughput.</li>
+                  <li>
+                    Full-set round duration rounds up to whole slots after the
+                    eight-second floor.
+                  </li>
+                  <li>
+                    Transactions arrive uniformly, giving an expected half-slot
+                    inclusion wait.
+                  </li>
+                  <li>
+                    After block inclusion, input to the finality gadget has an
+                    independent, uniformly phased half-round expected wait.
+                  </li>
+                  <li>
+                    The block is confirmed and eligible when it becomes a
+                    finality-gadget input; no separate confirmation delay is added.
+                  </li>
+                  <li>Stake weight is preserved as identities consolidate.</li>
+                  <li>Enabled networking gains multiply before the physical floor.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>It does not model</h3>
+                <ul>
+                  <li>Safety, recovery, or adversary thresholds of a specific finality gadget.</li>
+                  <li>Censorship, fee competition, builder delay, or non-uniform transaction arrival.</li>
+                  <li>Peer topology, loss, geographic latency, or client limits.</li>
+                  <li>Committee security, aggregation, safety, or liveness.</li>
+                  <li>The exact historical validator-count record or raw gossip message count.</li>
+                  <li>Measured interactions between DC, EIP-8334, and EIP-8243.</li>
+                  <li>Shadow simulation output; that series remains reserved.</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+
+          <details className="source-details">
+            <summary>
+              Sources and further reading <span aria-hidden="true">+</span>
+            </summary>
+            <div className="source-content">
+              <p>
+                The live count attempts a server-side refresh from Beaconcha.in and
+                falls back to a visibly dated snapshot, but it is only a chart marker.
+                The model uses 1.1M as a rounded historical-high workload scenario,
+                not an exact record. Proposal wording was checked against the local
+                EIP and EthResearch corpora.
+              </p>
+              <div className="source-links">
+                <a href="https://ethresear.ch/t/lmd-ghost-with-256-validators-and-a-fast-following-finality-gadget/22856" target="_blank" rel="noreferrer">Mainnet attestation workload <ExternalArrow /></a>
+                <a href="https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527" target="_blank" rel="noreferrer">Decoupled consensus <ExternalArrow /></a>
+                <a href="https://eips.ethereum.org/EIPS/eip-8198" target="_blank" rel="noreferrer">EIP-8198 · Quick Slots <ExternalArrow /></a>
+                <a href="https://eips.ethereum.org/EIPS/eip-8243" target="_blank" rel="noreferrer">EIP-8243 · source batching <ExternalArrow /></a>
+                <a href="https://ethereum-magicians.org/t/eip-8334-bundled-attestation-propagation/29008" target="_blank" rel="noreferrer">EIP-8334 · bundled propagation <ExternalArrow /></a>
+                <a href="https://strawmap.org/" target="_blank" rel="noreferrer">Strawmap roadmap <ExternalArrow /></a>
+                <a href="https://pectrified.com/mainnet/validator" target="_blank" rel="noreferrer">Pectrified analytics <ExternalArrow /></a>
+                <a href="https://docs.beaconcha.in/api-reference/epochs/epoch-overview" target="_blank" rel="noreferrer">Beaconcha.in epoch API <ExternalArrow /></a>
+              </div>
+            </div>
+          </details>
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function ProposalTrackerSection() {
+  return (
+    <section
+      className="pathways-section"
+      id="pathways"
+      aria-labelledby="pathways-title"
+    >
+      <div className="section-heading pathway-heading">
+        <h2 id="pathways-title">Relevant Proposals</h2>
+      </div>
+
+      <div className="proposal-tracker-heading">
+        <div>
+          <p>Proposal tracker</p>
+          <span>
+            Local EIP snapshot {LOCAL_EIP_SNAPSHOT} · reviewed{" "}
+            {PROPOSAL_LAST_CHECKED}
+          </span>
+        </div>
+        <a href="https://strawmap.org/" target="_blank" rel="noreferrer">
+          Open Strawmap <ExternalArrow />
+        </a>
+      </div>
+
+      <div className="proposal-tracker" role="list">
+        {PROPOSALS.map((proposal) => {
+          const roleLabel =
+            proposal.role === "curve"
+              ? "Adds a curve"
+              : proposal.role === "finality"
+                ? proposal.id === "eip-8198"
+                  ? "Changes slot timing"
+                  : "Changes finality rounds"
+                : proposal.role === "x-axis"
+                  ? "Moves along x"
+                  : "Changes arrival time";
+
+          return (
+            <article
+              className={`proposal-row role-${proposal.role}`}
+              key={proposal.id}
+              role="listitem"
+            >
+              <div className="proposal-identity">
+                <span>{proposal.eip ? `EIP-${proposal.eip}` : "Research"}</span>
+                <strong>{proposal.title}</strong>
+              </div>
+              <div className="proposal-effect">
+                <details>
+                  <summary>Why it matters <span aria-hidden="true">+</span></summary>
+                  <p>{proposal.effect}</p>
+                  <small>{proposal.plotNote}</small>
+                </details>
+              </div>
+              <div className="proposal-meta">
+                <span>{roleLabel}</span>
+                <small>{proposal.statusLabel}</small>
+                <small>{proposal.roadmap}</small>
+              </div>
+              <a
+                className="proposal-link"
+                href={proposal.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Read ${proposal.eip ?? proposal.title}`}
+              >
+                Source <ExternalArrow />
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -501,9 +689,9 @@ export default function Home() {
           finality<span>.watch</span>
         </a>
         <nav aria-label="Primary navigation">
-          <a href="#decoupling">Decoupling</a>
           <a href="#methodology">Model</a>
           <a href="#pathways">Research</a>
+          <a href="#decoupling">Decoupling</a>
         </nav>
       </header>
 
@@ -892,42 +1080,44 @@ export default function Home() {
             className="finality-layer"
             aria-label="Expected finality formula"
           >
-            <div className="finality-equation">
-              <span>
-                {formatDuration(finalityTiming.expectedPreVotingSeconds)} expected
-                wait to voting
-              </span>
-              <i aria-hidden="true">+</i>
-              <span>{finalityTiming.finalityRounds} × {formatDuration(finalityTiming.roundSeconds)}</span>
-              <i aria-hidden="true">→</i>
-              <strong>= {formatDuration(finalityTiming.totalSeconds)}</strong>
-            </div>
-
-            <FinalityTimingDiagram timing={finalityTiming} />
-
             <details className="finality-explainer">
-              <summary>How this estimate works <span aria-hidden="true">+</span></summary>
-              <p>
-                A transaction arrives uniformly within a slot. Inclusion takes
-                half a slot on average; because inclusion itself lands on a slot
-                boundary, only half of the remaining round contributes to
-                alignment. Together those terms equal half a round. The model
-                assumes a block included at a round boundary can enter that same
-                round; one-round finality then removes one full voting round.
-              </p>
+              <summary className="finality-equation">
+                <span className="finality-equation-row">
+                  <span>
+                    {formatDuration(finalityTiming.expectedPreVotingSeconds)} expected
+                    wait to voting
+                  </span>
+                  <i aria-hidden="true">+</i>
+                  <span>
+                    {finalityTiming.finalityRounds} ×{" "}
+                    {formatDuration(finalityTiming.roundSeconds)}
+                  </span>
+                  <i aria-hidden="true">→</i>
+                  <strong>= {formatDuration(finalityTiming.totalSeconds)}</strong>
+                </span>
+                <span className="finality-equation-action">
+                  More info &amp; visualization <i aria-hidden="true">+</i>
+                </span>
+              </summary>
+              <div className="finality-explainer-content">
+                <p id="finality-explainer-copy">
+                  A transaction arrives uniformly within a slot. Inclusion takes
+                  half a slot on average. After its block is included, the model
+                  adds an independent half-round wait before the block becomes an
+                  input to the finality gadget. Voting then takes one or two full
+                  rounds. This simplified timing assumes the block is confirmed
+                  and eligible; it does not add a separate confirmation delay.
+                </p>
+                <FinalityTimingDiagram timing={finalityTiming} />
+              </div>
             </details>
           </section>
         </div>
 
-        <div className="model-caveat">
-          <span aria-hidden="true">i</span>
-          <p>
-            <strong>Sensitivity model—not a forecast.</strong> Safe parameters
-            still depend on protocol, networking, participation, and clients.
-          </p>
-        </div>
-
       </section>
+
+      <MethodologySection />
+      <ProposalTrackerSection />
 
       <section
         className="decoupling-section"
@@ -1040,212 +1230,6 @@ export default function Home() {
           </p>
         </div>
         <DcVotingPattern />
-      </section>
-
-      <section className="pathways-section" id="pathways" aria-labelledby="pathways-title">
-        <div className="section-heading pathway-heading">
-          <h2 id="pathways-title">Relevant Proposals</h2>
-        </div>
-
-        <div className="proposal-tracker-heading">
-          <div>
-            <p>Proposal tracker</p>
-            <span>
-              Local EIP snapshot {LOCAL_EIP_SNAPSHOT} · reviewed{" "}
-              {PROPOSAL_LAST_CHECKED}
-            </span>
-          </div>
-          <a href="https://strawmap.org/" target="_blank" rel="noreferrer">
-            Open Strawmap <ExternalArrow />
-          </a>
-        </div>
-
-        <div className="proposal-tracker" role="list">
-          {PROPOSALS.map((proposal) => {
-            const roleLabel =
-              proposal.role === "curve"
-                ? "Adds a curve"
-                : proposal.role === "finality"
-                  ? proposal.id === "eip-8198"
-                    ? "Changes slot timing"
-                    : "Changes finality rounds"
-                : proposal.role === "x-axis"
-                  ? "Moves along x"
-                  : proposal.role === "timeline"
-                    ? "Changes arrival time"
-                    : "Tracked, not plotted";
-
-            return (
-              <article className={`proposal-row role-${proposal.role}`} key={proposal.id} role="listitem">
-                <div className="proposal-identity">
-                  <span>{proposal.eip ? `EIP-${proposal.eip}` : "Research"}</span>
-                  <strong>{proposal.title}</strong>
-                </div>
-                <div className="proposal-effect">
-                  <details>
-                    <summary>Why it matters <span aria-hidden="true">+</span></summary>
-                    <p>{proposal.effect}</p>
-                    <small>{proposal.plotNote}</small>
-                  </details>
-                </div>
-                <div className="proposal-meta">
-                  <span>{roleLabel}</span>
-                  <small>{proposal.statusLabel}</small>
-                  <small>{proposal.roadmap}</small>
-                </div>
-                <a
-                  className="proposal-link"
-                  href={proposal.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`Read ${proposal.eip ?? proposal.title}`}
-                >
-                  Source <ExternalArrow />
-                </a>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="methodology-section" id="methodology" aria-labelledby="methodology-title">
-        <div className="methodology-heading">
-          <div>
-            <h2 id="methodology-title">Methodology</h2>
-          </div>
-          <p>
-            An explicit workload baseline—not a forecast.
-          </p>
-        </div>
-
-        <div className="equation" aria-label="Model equation">
-          <div>
-            <span>Raw full-set round</span>
-            <strong>{rawRoundEquation}</strong>
-          </div>
-          <span className="equation-arrow" aria-hidden="true">→</span>
-          <div>
-            <span>Displayed round time</span>
-            <strong>{displayedRoundEquation}</strong>
-          </div>
-        </div>
-        <p className="equation-note">
-          DC contributes an optimistic 4× gain, bundled propagation 2×, and
-          source batching 1–2× depending on validator count. Selected gains
-          multiply as an exploratory sensitivity. Slot length never changes the
-          raw finality-vote throughput.
-        </p>
-
-        <div className="capacity-facts" aria-label="Capacity reference points">
-          <div>
-            <span>Historical workload reference</span>
-            <strong>{numberFormatter.format(REFERENCE_ATTESTERS_PER_SLOT)}</strong>
-            <small>assigned attesters per current slot · 1.1M ÷ 32</small>
-          </div>
-          <div>
-            <span>Structural ceiling</span>
-            <strong>{numberFormatter.format(MAX_ASSIGNED_ATTESTERS_PER_SLOT)}</strong>
-            <small>64 committees × 2,048 seats · not measured throughput</small>
-          </div>
-          <div>
-            <span>One-cohort floor</span>
-            <strong>{SINGLE_COHORT_FLOOR_SECONDS} sec</strong>
-            <small>4 sec delivery + 4 sec aggregation</small>
-          </div>
-        </div>
-
-        <div className="slot-phase-model" aria-label="Current 12-second slot timing reference">
-          <span>Current 12-second slot</span>
-          <div>
-            <strong>0–4s</strong>
-            <small>block propagation + vote target</small>
-          </div>
-          <div>
-            <strong>4–8s</strong>
-            <small>attestation propagation + aggregation</small>
-          </div>
-          <div>
-            <strong>8–12s</strong>
-            <small>global aggregate propagation</small>
-          </div>
-        </div>
-
-        <div className="finality-method-equation" aria-label="Expected time-to-finality equation">
-          <span>Expected time to finality</span>
-          <strong>½ round + rounds × round</strong>
-        </div>
-
-        <details className="method-details">
-          <summary>
-            Assumptions and limits <span aria-hidden="true">+</span>
-          </summary>
-          <div className="methodology-grid">
-            <div>
-              <h3>The model assumes</h3>
-              <ul>
-                <li>Workload scales linearly with active validator-identity count.</li>
-                <li>A rounded 1.1M-validator, 32-slot epoch is the fixed capacity reference.</li>
-                <li>Shorter slots change slot count and inclusion, not raw FG throughput.</li>
-                <li>
-                  Full-set round duration rounds up to whole slots after the
-                  eight-second floor.
-                </li>
-                <li>
-                  Transactions arrive uniformly, giving an expected half-slot
-                  inclusion wait.
-                </li>
-                <li>
-                  Inclusion lands on a slot boundary; the additional alignment
-                  wait is half of the remaining round.
-                </li>
-                <li>
-                  A boundary-slot block is eligible for that same
-                  boundary-aligned voting round.
-                </li>
-                <li>Stake weight is preserved as identities consolidate.</li>
-                <li>Enabled networking gains multiply before the physical floor.</li>
-              </ul>
-            </div>
-            <div>
-              <h3>It does not model</h3>
-              <ul>
-                <li>Safety, recovery, or adversary thresholds of a specific finality gadget.</li>
-                <li>Censorship, fee competition, builder delay, or non-uniform transaction arrival.</li>
-                <li>Peer topology, loss, geographic latency, or client limits.</li>
-                <li>Committee security, aggregation, safety, or liveness.</li>
-                <li>The exact historical validator-count record or raw gossip message count.</li>
-                <li>Measured interactions between DC, EIP-8334, and EIP-8243.</li>
-                <li>A numeric timing effect for ePBS or FOCIL.</li>
-                <li>Shadow simulation output; that series remains reserved.</li>
-              </ul>
-            </div>
-          </div>
-        </details>
-
-        <details className="source-details">
-          <summary>
-            Sources and further reading <span aria-hidden="true">+</span>
-          </summary>
-          <div className="source-content">
-            <p>
-              The live count attempts a server-side refresh from Beaconcha.in and
-              falls back to a visibly dated snapshot, but it is only a chart marker.
-              The model uses 1.1M as a rounded historical-high workload scenario,
-              not an exact record. Proposal wording was checked against the local
-              EIP and EthResearch corpora.
-            </p>
-            <div className="source-links">
-              <a href="https://ethresear.ch/t/lmd-ghost-with-256-validators-and-a-fast-following-finality-gadget/22856" target="_blank" rel="noreferrer">Mainnet attestation workload <ExternalArrow /></a>
-              <a href="https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527" target="_blank" rel="noreferrer">Decoupled consensus <ExternalArrow /></a>
-              <a href="https://eips.ethereum.org/EIPS/eip-8198" target="_blank" rel="noreferrer">EIP-8198 · Quick Slots <ExternalArrow /></a>
-              <a href="https://eips.ethereum.org/EIPS/eip-8243" target="_blank" rel="noreferrer">EIP-8243 · source batching <ExternalArrow /></a>
-              <a href="https://ethereum-magicians.org/t/eip-8334-bundled-attestation-propagation/29008" target="_blank" rel="noreferrer">EIP-8334 · bundled propagation <ExternalArrow /></a>
-              <a href="https://strawmap.org/" target="_blank" rel="noreferrer">Strawmap roadmap <ExternalArrow /></a>
-              <a href="https://pectrified.com/mainnet/validator" target="_blank" rel="noreferrer">Pectrified analytics <ExternalArrow /></a>
-              <a href="https://docs.beaconcha.in/api-reference/epochs/epoch-overview" target="_blank" rel="noreferrer">Beaconcha.in epoch API <ExternalArrow /></a>
-            </div>
-          </div>
-        </details>
       </section>
 
       <footer>

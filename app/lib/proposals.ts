@@ -10,8 +10,6 @@ export type ProposalId =
   | "eip-8198"
   | "eip-8243"
   | "eip-8334"
-  | "eip-7732"
-  | "eip-7805"
   | "one-round-finality"
   | "dc";
 
@@ -21,8 +19,7 @@ export type ProposalPlotRole =
   | "curve"
   | "finality"
   | "x-axis"
-  | "timeline"
-  | "tracked";
+  | "timeline";
 
 type ProposalSource = {
   id: ProposalId;
@@ -119,7 +116,7 @@ const PROPOSAL_SOURCES = [
     plotEffect:
       "Uses an optimistic 2× source-side gain at 500,000 validators and above, tapering linearly to no gain at 128,000 validators as consolidation removes overlapping work.",
     caution:
-      "The gain is a sensitivity assumption, not a measured network-wide result. Its taper avoids treating source batching and validator consolidation as independent, multiplicative savings.",
+      "The gain is a modeling assumption, not a measured network-wide result. Its taper avoids treating source batching and validator consolidation as independent, multiplicative savings.",
     sourceUrl: "https://eips.ethereum.org/EIPS/eip-8243",
     lastChecked: PROPOSALS_LAST_CHECKED,
   },
@@ -135,69 +132,12 @@ const PROPOSAL_SOURCES = [
     summary:
       "Uses gossipsub partial messages to deduplicate attestation data during subnet propagation, with a stated upper-bound bandwidth saving of up to 50%.",
     plotEffect:
-      "Models the stated upper-bound bandwidth saving as a fixed, optimistic 2× full-set attestation-throughput sensitivity.",
+      "Models the stated upper-bound bandwidth saving as a fixed, optimistic 2× full-set attestation-throughput multiplier.",
     caution:
       "Up to 50% less subnet bandwidth does not establish 2× round throughput; the curve is explicitly optimistic and should be validated with measurements.",
     sourceUrl: "https://github.com/ethereum/EIPs/pull/11905",
     secondaryUrl:
       "https://ethereum-magicians.org/t/eip-8334-bundled-attestation-propagation/29008",
-    lastChecked: PROPOSALS_LAST_CHECKED,
-  },
-  {
-    id: "eip-7732",
-    eip: 7732,
-    label: "Enshrined Proposer-Builder Separation",
-    shortLabel: "ePBS",
-    status: "draft",
-    statusLabel: "Draft · scheduled",
-    plotRole: "tracked",
-    roadmapLabel: "Glamsterdam headliner",
-    summary:
-      "Separates consensus and execution validation in time and removes the full execution payload from the consensus block's critical propagation path.",
-    plotEffect:
-      "May create room for shorter slot designs, but its specification provides no scalar for a full-set voting-round curve.",
-    caution:
-      "Treat ePBS as enabling infrastructure, not as a quantified finality improvement.",
-    sourceUrl: "https://eips.ethereum.org/EIPS/eip-7732",
-    secondaryUrl: "https://eips.ethereum.org/EIPS/eip-7773",
-    lastChecked: PROPOSALS_LAST_CHECKED,
-  },
-  {
-    id: "eip-7805",
-    eip: 7805,
-    label: "Fork-choice enforced Inclusion Lists",
-    shortLabel: "FOCIL",
-    status: "draft",
-    statusLabel: "Draft · scheduled",
-    plotRole: "tracked",
-    roadmapLabel: "Hegotá headliner",
-    summary:
-      "Lets a small committee force timely transaction inclusion to strengthen censorship resistance.",
-    plotEffect:
-      "Tracked as an adjacent consensus-role change; it is not a validator-consolidation or round-speed multiplier.",
-    caution:
-      "FOCIL adds bounded committee messages and verification work, so it should not be presented as a faster-finality curve.",
-    sourceUrl: "https://eips.ethereum.org/EIPS/eip-7805",
-    secondaryUrl: "https://eips.ethereum.org/EIPS/eip-8081",
-    lastChecked: PROPOSALS_LAST_CHECKED,
-  },
-  {
-    id: "one-round-finality",
-    eip: null,
-    label: "One-round finality gadget",
-    shortLabel: "One-round finality",
-    status: "research",
-    statusLabel: "Core research",
-    plotRole: "finality",
-    roadmapLabel: "Decoupled-consensus finality gadget",
-    summary:
-      "Uses a finality gadget that can finalize in one full-set voting round under its stated optimistic or adversarial assumptions.",
-    plotEffect:
-      "Changes the finality formula from two completed voting rounds to one; it does not make an individual round faster.",
-    caution:
-      "One-round constructions have distinct thresholds, recovery behavior, and safety assumptions. The toggle is a timing sensitivity, not a protocol commitment.",
-    sourceUrl:
-      "https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527",
     lastChecked: PROPOSALS_LAST_CHECKED,
   },
   {
@@ -219,6 +159,25 @@ const PROPOSAL_SOURCES = [
       "https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527",
     secondaryUrl:
       "https://ethresear.ch/t/why-ethereum-needs-a-dynamically-available-protocol/24418",
+    lastChecked: PROPOSALS_LAST_CHECKED,
+  },
+  {
+    id: "one-round-finality",
+    eip: null,
+    label: "One-round finality gadget",
+    shortLabel: "One-round finality",
+    status: "research",
+    statusLabel: "Core research",
+    plotRole: "finality",
+    roadmapLabel: "Decoupled-consensus finality gadget",
+    summary:
+      "Uses a finality gadget that can finalize in one full-set voting round under its stated optimistic or adversarial assumptions.",
+    plotEffect:
+      "Changes the finality formula from two completed voting rounds to one; it does not make an individual round faster.",
+    caution:
+      "One-round constructions have distinct thresholds, recovery behavior, and safety assumptions. The toggle is a timing scenario, not a protocol commitment.",
+    sourceUrl:
+      "https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527",
     lastChecked: PROPOSALS_LAST_CHECKED,
   },
 ] as const satisfies readonly ProposalSource[];
@@ -263,7 +222,7 @@ export const ROUND_IMPROVEMENTS = [
     gainLabel: "2×",
     strokeClass: "curve-bundled-propagation",
     assumption:
-      "Fixed optimistic 2× throughput sensitivity derived from the proposal's upper bound of 50% lower attestation-subnet bandwidth; this is not yet a measured round-time gain.",
+      "Fixed optimistic 2× throughput multiplier derived from the proposal's upper bound of 50% lower attestation-subnet bandwidth; this is not yet a measured round-time gain.",
     sourceUrl: "https://github.com/ethereum/EIPs/pull/11905",
   },
   {

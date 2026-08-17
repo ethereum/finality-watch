@@ -60,10 +60,14 @@ test("server-renders the consolidation explorer", async () => {
   assert.doesNotMatch(html, /Save network work now|What can one staker take off the network\?|Your impact/);
   assert.doesNotMatch(html, /(?:href|id)="(?:#)?(?:calculator|decentralization)"/);
   assert.match(html, /<h2 id="pathways-title">Relevant Proposals<\/h2>/);
-  assert.match(html, /<h2 id="methodology-title">Methodology<\/h2>/);
+  assert.match(
+    html,
+    /<h2 class="sr-only" id="methodology-title">Methodology<\/h2>/,
+  );
   assert.doesNotMatch(html, /Make the trailing lane practical|Simple enough to challenge/);
   assert.match(html, /EIP-7251/);
-  assert.match(html, /Sensitivity model—not a forecast/);
+  assert.match(html, /Simplified model—not a forecast/);
+  assert.doesNotMatch(html, /sensitivity/i);
   assert.doesNotMatch(html, /Blocks keep moving\. Finality follows\.|Future consensus improvements|To be cultivated/);
   assert.doesNotMatch(html, /Garden model · leaf venation|Many independent tips/);
   assert.match(html, /Slot time/);
@@ -80,19 +84,33 @@ test("server-renders the consolidation explorer", async () => {
   );
   assert.equal(finalityRadioInputs.filter((tag) => /checked=""/.test(tag)).length, 1);
   assert.doesNotMatch(html, /active throughput gain/);
-  assert.match(html, /Expected finality[\s\S]*?30 sec/);
-  assert.match(html, /Coupled today[\s\S]*?16 min[\s\S]*?expected/);
+  assert.match(html, /Expected finality[\s\S]*?36 sec/);
+  assert.match(html, /Coupled today[\s\S]*?16m 6s[\s\S]*?expected/);
   assert.match(html, /384s × identities ÷ 1\.1M ÷ stacked gain/);
   assert.match(html, /ceil\(max\(8s, raw\) ÷ slot\) × slot/);
-  assert.match(html, /½ round \+ rounds × round/);
-  assert.match(html, /Dynamic timing diagram/);
-  assert.match(html, /Transaction arrival → finality/);
   assert.match(
     html,
-    /Expected inclusion[\s\S]*?6 sec[\s\S]*?½ ×[\s\S]*?12[\s\S]*?-sec slot/,
+    /½ slot \+ ½ finality-gadget round \+ rounds × round/,
   );
-  assert.match(html, /Additional alignment[\s\S]*?0 sec[\s\S]*?Already at the round boundary/);
-  assert.match(html, /Expected wait to voting[\s\S]*?6 sec/);
+  assert.match(html, /Dynamic timing diagram · schematic widths/);
+  assert.match(html, /Transaction arrival → finality/);
+  assert.match(html, /<details class="finality-explainer">/);
+  assert.doesNotMatch(html, /<details class="finality-explainer" open/);
+  assert.match(
+    html,
+    /<details class="finality-explainer">[\s\S]*?<summary class="finality-equation">[\s\S]*?More info &amp; visualization[\s\S]*?<\/summary>[\s\S]*?Dynamic timing diagram[\s\S]*?<\/details>/,
+  );
+  assert.doesNotMatch(html, /How this estimate works · visualization/);
+  assert.match(html, /Inclusion[\s\S]*?6 sec/);
+  assert.match(html, /Wait for finality-gadget input[\s\S]*?6 sec/);
+  assert.match(html, /Block enters finality-gadget round/);
+  assert.match(html, /Expected wait to voting[\s\S]*?12 sec/);
+  assert.match(
+    html,
+    /class="finality-timing-stage is-voting"[\s\S]*?Justification/,
+  );
+  assert.match(html, /first completed voting round marks justification/);
+  assert.doesNotMatch(html, /Round 1 complete/);
   assert.equal(
     (html.match(/class="finality-timing-stage is-voting"/g) ?? []).length,
     2,
@@ -101,12 +119,20 @@ test("server-renders the consolidation explorer", async () => {
     html,
     /class="finality-timing-stage is-voting"[\s\S]*?12 sec/,
   );
-  assert.match(html, /Inclusion and round alignment share one expected half-round wait/);
+  assert.match(html, /independent half-round wait/);
+  assert.doesNotMatch(html, /finality-timing-quantities/);
   assert.doesNotMatch(html, /round up to [\d.]+ slots/);
   assert.match(html, /One-round finality gadget/);
   assert.match(html, /EIP-8198/);
   assert.match(html, /EIP-8243/);
   assert.match(html, /EIP-8334/);
+  assert.doesNotMatch(html, /EIP-7732|\bePBS\b/);
+  assert.doesNotMatch(html, /EIP-7805|FOCIL/);
+  assert.equal((html.match(/class="proposal-row role-/g) ?? []).length, 7);
+  assert.match(
+    html,
+    /class="proposal-tracker"[\s\S]*?Decoupled consensus[\s\S]*?One-round finality gadget/,
+  );
   assert.doesNotMatch(html, /Awaiting measurements/);
   assert.match(html, /<span>DC<\/span>[\s\S]*?<b>4×<\/b>[\s\S]*?Included/);
   assert.match(html, /<span>Bundling<\/span>[\s\S]*?<b>2×<\/b>/);
@@ -154,6 +180,10 @@ test("server-renders the consolidation explorer", async () => {
   const slotTimePosition = html.indexOf('class="improvement-group slot-time-control"');
   const rangePosition = html.indexOf('class="range-control range-control-above-chart"');
   const chartPosition = html.indexOf('class="chart-wrap"');
+  const modelPosition = html.indexOf('id="model"');
+  const methodologyPosition = html.indexOf('id="methodology"');
+  const pathwaysPosition = html.indexOf('id="pathways"');
+  const decouplingPosition = html.indexOf('id="decoupling"');
   assert.ok(resultsPosition < controlsPosition);
   assert.ok(controlsPosition < networkingPosition);
   assert.ok(networkingPosition < roundsPosition);
@@ -161,6 +191,16 @@ test("server-renders the consolidation explorer", async () => {
   assert.ok(slotTimePosition < rangePosition);
   assert.ok(controlsPosition < rangePosition);
   assert.ok(rangePosition < chartPosition);
+  assert.ok(modelPosition < methodologyPosition);
+  assert.ok(methodologyPosition < pathwaysPosition);
+  assert.ok(pathwaysPosition < decouplingPosition);
+  assert.match(html, /<details class="methodology-disclosure">/);
+  assert.doesNotMatch(html, /<details class="methodology-disclosure" open/);
+  assert.match(
+    html,
+    /<details class="methodology-disclosure">[\s\S]*?<summary>[\s\S]*?Methodology[\s\S]*?Simplified model—not a forecast[\s\S]*?View details[\s\S]*?<\/summary>[\s\S]*?Raw full-set round[\s\S]*?<\/details>/,
+  );
+  assert.doesNotMatch(html, /class="model-caveat"/);
 });
 
 test("removes the disposable starter and uses product metadata", async () => {
@@ -186,7 +226,15 @@ test("removes the disposable starter and uses product metadata", async () => {
   assert.match(styles, /\.finality-timing-track \{[\s\S]*?display: flex/);
   assert.match(
     styles,
+    /\.finality-timing-finish \{[\s\S]*?top: -24px;[\s\S]*?margin-left: -6px;/,
+  );
+  assert.match(
+    styles,
     /@media \(max-width: 780px\)[\s\S]*?\.finality-timing-track \{[\s\S]*?display: grid/,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 780px\)[\s\S]*?\.finality-timing-finish::after \{[\s\S]*?left: -14px;/,
   );
   assert.match(
     styles,
@@ -208,7 +256,24 @@ test("removes the disposable starter and uses product metadata", async () => {
   );
   assert.match(
     styles,
-    /\.improvement-buttons \{[\s\S]*?minmax\(0, 0\.65fr\)[\s\S]*?minmax\(0, 1\.5fr\)/,
+    /\.improvement-buttons \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/,
+  );
+  assert.match(
+    styles,
+    /\.model-toolbar \.model-primary-results > div > strong \{[\s\S]*?2\.15rem[\s\S]*?white-space: nowrap/,
+  );
+  assert.match(
+    styles,
+    /\.finality-explainer \{[\s\S]*?border: 1px solid var\(--line\)/,
+  );
+  assert.match(
+    styles,
+    /\.finality-equation \{[\s\S]*?cursor: pointer[\s\S]*?list-style: none/,
+  );
+  assert.match(styles, /\.finality-equation:focus-visible/);
+  assert.match(
+    styles,
+    /\.finality-explainer \.finality-timing-diagram \{[\s\S]*?background: transparent/,
   );
   assert.match(
     styles,

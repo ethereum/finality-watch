@@ -42,7 +42,7 @@ export type FinalityTiming = {
   roundSeconds: number;
   finalityRounds: number;
   expectedInclusionSeconds: number;
-  expectedRoundAlignmentSeconds: number;
+  expectedFinalityGadgetWaitSeconds: number;
   expectedPreVotingSeconds: number;
   votingSeconds: number;
   totalSeconds: number;
@@ -134,10 +134,9 @@ export function calculateFinalityTiming(
   const safeRoundSeconds = roundSlots * safeSlotSeconds;
   const safeFinalityRounds = Math.max(1, Math.round(finalityRounds));
   const expectedInclusionSeconds = safeSlotSeconds / 2;
-  const expectedRoundAlignmentSeconds =
-    (safeRoundSeconds - safeSlotSeconds) / 2;
+  const expectedFinalityGadgetWaitSeconds = safeRoundSeconds / 2;
   const expectedPreVotingSeconds =
-    expectedInclusionSeconds + expectedRoundAlignmentSeconds;
+    expectedInclusionSeconds + expectedFinalityGadgetWaitSeconds;
   const votingSeconds = safeFinalityRounds * safeRoundSeconds;
   const totalSeconds = expectedPreVotingSeconds + votingSeconds;
 
@@ -147,7 +146,7 @@ export function calculateFinalityTiming(
     roundSeconds: safeRoundSeconds,
     finalityRounds: safeFinalityRounds,
     expectedInclusionSeconds,
-    expectedRoundAlignmentSeconds,
+    expectedFinalityGadgetWaitSeconds,
     expectedPreVotingSeconds,
     votingSeconds,
     totalSeconds,
