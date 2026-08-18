@@ -19,7 +19,7 @@ const AC_SAMPLES = [
   [11, 30, 37, 62],
 ] as const;
 
-export function DcVotingPattern() {
+export function DcVotingPattern({ paused = false }: { paused?: boolean }) {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -32,14 +32,14 @@ export function DcVotingPattern() {
       timer = null;
     };
     const start = () => {
-      if (timer !== null || document.hidden || reducedMotion.matches) return;
+      if (timer !== null || document.hidden || reducedMotion.matches || paused) return;
       timer = window.setInterval(
         () => setPhase((current) => (current >= FINAL_PHASE ? 0 : current + 1)),
         STEP_MS,
       );
     };
     const sync = () => {
-      if (document.hidden) stop();
+      if (document.hidden || paused) stop();
       else if (reducedMotion.matches) {
         stop();
         setPhase(FINAL_PHASE);
@@ -54,7 +54,7 @@ export function DcVotingPattern() {
       document.removeEventListener("visibilitychange", sync);
       reducedMotion.removeEventListener("change", sync);
     };
-  }, []);
+  }, [paused]);
 
   const activeSlot =
     phase >= FIRST_VOTE_PHASE && phase < FINAL_PHASE
@@ -65,7 +65,8 @@ export function DcVotingPattern() {
     ? COHORT_COUNT
     : Math.max(0, phase - FIRST_VOTE_PHASE);
   const sampledValidators = useMemo(
-    () => new Set(activeSlot === null ? [] : AC_SAMPLES[activeSlot]),
+    () =>
+      new Set<number>(activeSlot === null ? [] : AC_SAMPLES[activeSlot]),
     [activeSlot],
   );
   const cohorts = Array.from({ length: COHORT_COUNT }, (_, index) => index);

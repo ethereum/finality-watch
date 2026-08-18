@@ -1,6 +1,6 @@
 import type { RoundImprovementId } from "./model.ts";
 
-export const PROPOSALS_LAST_CHECKED = "2026-08-02" as const;
+export const PROPOSALS_LAST_CHECKED = "2026-08-19" as const;
 export const PROPOSAL_LAST_CHECKED = PROPOSALS_LAST_CHECKED;
 export const LOCAL_EIP_SNAPSHOT = "2026-07-23";
 
@@ -70,8 +70,8 @@ const PROPOSAL_SOURCES = [
     eip: 8061,
     label: "Increase exit and consolidation churn",
     shortLabel: "Faster consolidation churn",
-    status: "draft",
-    statusLabel: "Draft",
+    status: "review",
+    statusLabel: "Review",
     plotRole: "timeline",
     roadmapLabel: "Considered for Glamsterdam",
     summary:

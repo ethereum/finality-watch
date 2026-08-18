@@ -8,6 +8,7 @@ export type DcPipelineProps = {
   checkpointLagSlots?: number;
   stabilizationLagSlots?: number | null;
   tickMs?: number;
+  paused?: boolean;
 };
 
 type BlockStage = "available" | "stabilized" | "finalized";
@@ -69,7 +70,7 @@ function createConfig(
   roundSlots: number,
   finalityRounds: number,
   checkpointLagSlots: number | undefined,
-  stabilizationLagSlots: number | null,
+  stabilizationLagSlots: number | null | undefined,
 ): PipelineConfig {
   const normalizedRoundSlots = normalizeRoundSlots(roundSlots);
   const normalizedFinalityRounds = Math.max(1, Math.round(finalityRounds));
@@ -82,7 +83,10 @@ function createConfig(
   const normalizedStabilizationLag =
     stabilizationLagSlots === null
       ? null
-      : Math.max(1, Math.round(stabilizationLagSlots));
+      : Math.max(
+          1,
+          Math.round(stabilizationLagSlots ?? STABILIZATION_LAG),
+        );
   const blockCount = Math.max(
     MINIMUM_BLOCK_COUNT,
     normalizedCheckpointLag +
@@ -239,7 +243,10 @@ function MovingPipeline({
   checkpointLagSlots,
   stabilizationLagSlots,
   tickMs,
-}: Required<Pick<DcPipelineProps, "roundSlots" | "finalityRounds" | "tickMs">> &
+  paused,
+}: Required<
+  Pick<DcPipelineProps, "roundSlots" | "finalityRounds" | "tickMs" | "paused">
+> &
   Pick<DcPipelineProps, "checkpointLagSlots" | "stabilizationLagSlots">) {
   const config = useMemo(
     () =>
@@ -271,7 +278,7 @@ function MovingPipeline({
     };
 
     const start = () => {
-      if (timer !== null || document.hidden || reducedMotion.matches) return;
+      if (timer !== null || document.hidden || reducedMotion.matches || paused) return;
       setPipeline((current) => ({
         ...current,
         tick: Math.floor(Date.now() / tickMs),
@@ -282,7 +289,7 @@ function MovingPipeline({
     };
 
     const syncPlayback = () => {
-      if (document.hidden) {
+      if (document.hidden || paused) {
         stop();
         return;
       }
@@ -305,7 +312,7 @@ function MovingPipeline({
       document.removeEventListener("visibilitychange", syncPlayback);
       reducedMotion.removeEventListener("change", syncPlayback);
     };
-  }, [config, tickMs]);
+  }, [config, paused, tickMs]);
 
   const pipelineStyle: PipelineStyle = {
     "--dc-block-count": config.blockCount,
@@ -419,6 +426,7 @@ export function DcPipeline({
   checkpointLagSlots,
   stabilizationLagSlots = STABILIZATION_LAG,
   tickMs = VISUAL_TICK_MS,
+  paused = false,
 }: DcPipelineProps) {
   const normalizedRoundSlots = normalizeRoundSlots(roundSlots);
   const normalizedTickMs = Math.max(80, Math.round(tickMs));
@@ -431,6 +439,7 @@ export function DcPipeline({
       checkpointLagSlots={checkpointLagSlots}
       stabilizationLagSlots={stabilizationLagSlots}
       tickMs={normalizedTickMs}
+      paused={paused}
     />
   );
 }

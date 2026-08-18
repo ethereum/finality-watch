@@ -7,9 +7,10 @@ import {
   REFERENCE_ATTESTERS_PER_SLOT,
   REFERENCE_ROUND_SECONDS,
   REFERENCE_VALIDATORS,
-  SINGLE_COHORT_FLOOR_SECONDS,
+  DECENTRALIZATION_FLOOR_SECONDS,
   SLOT_SECONDS,
   calculateFinalityTiming,
+  calculateRoundImprovementGain,
   calculateRoundModel,
   formatCompactCount,
   formatDuration,
@@ -24,27 +25,104 @@ import {
   PROPOSALS,
   PROPOSAL_LAST_CHECKED,
   ROUND_IMPROVEMENTS,
+  type ProposalId,
 } from "./lib/proposals";
-
-type NetworkSummary = {
-  activeValidators: number;
-  epoch: number | null;
-  observedAt: string;
-  source: string;
-  stale: boolean;
-};
-
-const FALLBACK_NETWORK: NetworkSummary = {
-  activeValidators: 887_995,
-  epoch: 463_868,
-  observedAt: "2026-07-25T03:15:35.000Z",
-  source: "Pectrified snapshot",
-  stale: true,
-};
+import networkSnapshot from "./data/network-snapshot.json";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const rawRoundEquation = `${REFERENCE_ROUND_SECONDS}s × identities ÷ ${formatCompactCount(REFERENCE_VALIDATORS)} ÷ stacked gain`;
-const displayedRoundEquation = `ceil(max(${SINGLE_COHORT_FLOOR_SECONDS}s, raw) ÷ slot) × slot`;
+const displayedRoundEquation = `ceil(max(${DECENTRALIZATION_FLOOR_SECONDS}s, raw) ÷ slot) × slot`;
+
+type ControlHelpPlacement = "networking" | "rounds" | "slot" | "chart";
+type ControlHelpTone = "leaf" | "teal" | "clay";
+
+type ControlHelpDefinition = {
+  id: string;
+  label: string;
+  eyebrow: string;
+  meta: string;
+  description: string;
+  modelEffect: string;
+  caution: string;
+  placement: ControlHelpPlacement;
+  tone: ControlHelpTone;
+  proposalId?: ProposalId;
+  sourceUrl?: string;
+};
+
+function proposalHelp(
+  id: string,
+  proposalId: ProposalId,
+  placement: ControlHelpPlacement,
+  tone: ControlHelpTone,
+): ControlHelpDefinition {
+  const proposal = PROPOSALS.find((candidate) => candidate.id === proposalId);
+
+  if (!proposal) {
+    throw new Error(`Missing proposal help content for ${proposalId}`);
+  }
+
+  return {
+    id,
+    label: proposal.title,
+    eyebrow: proposal.eip ? `Model note · EIP-${proposal.eip}` : "Model note · Research",
+    meta: proposal.statusLabel,
+    description: proposal.summary,
+    modelEffect: proposal.plotEffect,
+    caution: proposal.caution,
+    placement,
+    tone,
+    proposalId,
+    sourceUrl: proposal.sourceUrl,
+  };
+}
+
+const CONTROL_HELP_ITEMS: readonly ControlHelpDefinition[] = [
+  proposalHelp("improvement-dc", "dc", "networking", "leaf"),
+  proposalHelp(
+    "improvement-eip-8334",
+    "eip-8334",
+    "networking",
+    "teal",
+  ),
+  proposalHelp(
+    "improvement-eip-8243",
+    "eip-8243",
+    "networking",
+    "clay",
+  ),
+  {
+    id: "networking",
+    label: "Round networking",
+    eyebrow: "Model note · Combined gain",
+    meta: "Exploratory stack",
+    description:
+      "The active value combines the assumed increase in full-set vote throughput from every enabled networking change, compared with today at the same validator count.",
+    modelEffect:
+      "Selected gains multiply before the four-second decentralization floor and whole-slot rounding. Consolidation and slot time are handled separately.",
+    caution:
+      "The stacked result is an exploratory scenario, not a jointly measured performance prediction.",
+    placement: "networking",
+    tone: "leaf",
+  },
+  proposalHelp(
+    "finality-rounds",
+    "one-round-finality",
+    "rounds",
+    "teal",
+  ),
+  proposalHelp("slot-time", "eip-8198", "slot", "teal"),
+  proposalHelp(
+    "validator-consolidation",
+    "eip-7251",
+    "chart",
+    "leaf",
+  ),
+];
+
+const CONTROL_HELP_BY_ID = new Map(
+  CONTROL_HELP_ITEMS.map((item) => [item.id, item]),
+);
 
 function formatObservedAt(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -64,6 +142,149 @@ function ExternalArrow() {
 
 function formatGain(value: number) {
   return `${Number.isInteger(value) ? value : value.toFixed(1)}×`;
+}
+
+function Approximate({ value }: { value: string }) {
+  return (
+    <span className="approximate-value">
+      <span className="sr-only">approximately </span>
+      <span aria-hidden="true" className="approximation-mark">≈</span>
+      <span>{value}</span>
+    </span>
+  );
+}
+
+const proposalHighlightTimers = new Map<ProposalId, number>();
+
+function revealProposal(proposalId: ProposalId) {
+  const target = document.getElementById(`proposal-${proposalId}`);
+  if (!target) return;
+
+  const disclosure = target.querySelector("details");
+  if (disclosure instanceof HTMLDetailsElement) disclosure.open = true;
+
+  const existingTimer = proposalHighlightTimers.get(proposalId);
+  if (existingTimer) window.clearTimeout(existingTimer);
+
+  target.classList.remove("is-referenced");
+  void target.offsetWidth;
+  target.classList.add("is-referenced");
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
+    block: "center",
+  });
+
+  proposalHighlightTimers.set(
+    proposalId,
+    window.setTimeout(() => {
+      target.classList.remove("is-referenced");
+      proposalHighlightTimers.delete(proposalId);
+    }, 1_800),
+  );
+}
+
+function ControlHelpTrigger({
+  helpId,
+  isOpen,
+  onToggle,
+  triggerLabel = "More info",
+}: {
+  helpId: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  triggerLabel?: string;
+}) {
+  const panelId = `control-help-panel-${helpId}`;
+
+  return (
+    <button
+      aria-controls={panelId}
+      aria-expanded={isOpen}
+      aria-label={triggerLabel}
+      className="info-surface-trigger"
+      id={`control-help-trigger-${helpId}`}
+      onClick={onToggle}
+      title={triggerLabel}
+      type="button"
+    >
+      <i aria-hidden="true">i</i>
+    </button>
+  );
+}
+
+function ControlHelpPanel({
+  help,
+  onClose,
+}: {
+  help: ControlHelpDefinition;
+  onClose: (restoreFocus?: boolean) => void;
+}) {
+  const panelId = `control-help-panel-${help.id}`;
+  const titleId = `control-help-title-${help.id}`;
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={`control-help-panel tone-${help.tone} placement-${help.placement}`}
+      id={panelId}
+      role="region"
+    >
+      <div className="control-help-panel-heading">
+        <div>
+          <span className="control-help-eyebrow">{help.eyebrow}</span>
+          <h3 id={titleId}>{help.label}</h3>
+        </div>
+        <span className="control-help-meta">{help.meta}</span>
+        <button
+          aria-label={`Close ${help.label} note`}
+          className="control-help-close"
+          onClick={() => onClose(true)}
+          type="button"
+        >
+          <span>Close</span>
+          <i aria-hidden="true">×</i>
+        </button>
+      </div>
+
+      <div className="control-help-panel-content">
+        <div className="control-help-summary">
+          <span>What it changes</span>
+          <p>{help.description}</p>
+        </div>
+        <div className="control-help-model-effect">
+          <span>Effect in this model</span>
+          <p>{help.modelEffect}</p>
+        </div>
+      </div>
+
+      <div className="control-help-footer">
+        <p>
+          <strong>Keep in mind</strong>
+          {help.caution}
+        </p>
+        {help.proposalId && help.sourceUrl ? (
+          <div className="control-help-actions">
+            <a
+              className="proposal-jump"
+              href={`#proposal-${help.proposalId}`}
+              onClick={() => {
+                onClose(false);
+                revealProposal(help.proposalId as ProposalId);
+              }}
+            >
+              Find in proposal tracker <span aria-hidden="true">↓</span>
+            </a>
+            <a href={help.sourceUrl} target="_blank" rel="noreferrer">
+              Open source <ExternalArrow />
+            </a>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
 function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
@@ -86,7 +307,7 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
         <div className="finality-timing-total">
           <span>Expected total</span>
           <output aria-live="polite" aria-atomic="true">
-            ≈{formatDuration(timing.totalSeconds)}
+            <Approximate value={formatDuration(timing.totalSeconds)} />
           </output>
         </div>
       </div>
@@ -161,11 +382,12 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
         </div>
       </div>
 
-      <p className="sr-only">
+      <p className="sr-only" id="finality-explainer-copy">
         A transaction waits an expected{" "}
         {formatDuration(timing.expectedInclusionSeconds)} for inclusion and{" "}
-        an independent {formatDuration(timing.expectedFinalityGadgetWaitSeconds)}
-        before the block becomes input to the finality gadget. Together those
+        an independent half-round wait of{" "}
+        {formatDuration(timing.expectedFinalityGadgetWaitSeconds)} before the
+        block becomes input to the finality gadget. Together those
         waits take {formatDuration(timing.expectedPreVotingSeconds)} on average.
         Then{" "}
         {timing.finalityRounds} voting{" "}
@@ -233,9 +455,12 @@ function MethodologySection() {
               <small>64 committees × 2,048 seats · not measured throughput</small>
             </div>
             <div>
-              <span>One-cohort floor</span>
-              <strong>{SINGLE_COHORT_FLOOR_SECONDS} sec</strong>
-              <small>4 sec delivery + 4 sec aggregation</small>
+              <span>Decentralization floor</span>
+              <strong>{DECENTRALIZATION_FLOOR_SECONDS} sec</strong>
+              <small>
+                Assumed guardrail for geographic fairness and reasonable node
+                requirements—not a measured limit
+              </small>
             </div>
           </div>
 
@@ -279,7 +504,7 @@ function MethodologySection() {
                   <li>Shorter slots change slot count and inclusion, not raw FG throughput.</li>
                   <li>
                     Full-set round duration rounds up to whole slots after the
-                    eight-second floor.
+                    four-second decentralization floor.
                   </li>
                   <li>
                     Transactions arrive uniformly, giving an expected half-slot
@@ -294,7 +519,12 @@ function MethodologySection() {
                     finality-gadget input; no separate confirmation delay is added.
                   </li>
                   <li>Stake weight is preserved as identities consolidate.</li>
-                  <li>Enabled networking gains multiply before the physical floor.</li>
+                  <li>
+                    The four-second floor is a decentralization guardrail for
+                    geographic fairness and reasonable node requirements, not a
+                    measured network limit.
+                  </li>
+                  <li>Enabled networking gains multiply before that floor.</li>
                 </ul>
               </div>
               <div>
@@ -302,7 +532,10 @@ function MethodologySection() {
                 <ul>
                   <li>Safety, recovery, or adversary thresholds of a specific finality gadget.</li>
                   <li>Censorship, fee competition, builder delay, or non-uniform transaction arrival.</li>
-                  <li>Peer topology, loss, geographic latency, or client limits.</li>
+                  <li>
+                    Peer topology, loss, geographic latency, or client limits;
+                    the floor is a guardrail rather than a simulation of them.
+                  </li>
                   <li>Committee security, aggregation, safety, or liveness.</li>
                   <li>The exact historical validator-count record or raw gossip message count.</li>
                   <li>Measured interactions between DC, EIP-8334, and EIP-8243.</li>
@@ -318,11 +551,10 @@ function MethodologySection() {
             </summary>
             <div className="source-content">
               <p>
-                The live count attempts a server-side refresh from Beaconcha.in and
-                falls back to a visibly dated snapshot, but it is only a chart marker.
-                The model uses 1.1M as a rounded historical-high workload scenario,
-                not an exact record. Proposal wording was checked against the local
-                EIP and EthResearch corpora.
+                The validator count is a manually refreshed network snapshot used only
+                as a chart marker. The model uses 1.1M as a rounded historical-high
+                workload scenario, not an exact record. Proposal wording was checked
+                against the local EIP and EthResearch corpora.
               </p>
               <div className="source-links">
                 <a href="https://ethresear.ch/t/lmd-ghost-with-256-validators-and-a-fast-following-finality-gadget/22856" target="_blank" rel="noreferrer">Mainnet attestation workload <ExternalArrow /></a>
@@ -331,7 +563,8 @@ function MethodologySection() {
                 <a href="https://eips.ethereum.org/EIPS/eip-8243" target="_blank" rel="noreferrer">EIP-8243 · source batching <ExternalArrow /></a>
                 <a href="https://ethereum-magicians.org/t/eip-8334-bundled-attestation-propagation/29008" target="_blank" rel="noreferrer">EIP-8334 · bundled propagation <ExternalArrow /></a>
                 <a href="https://strawmap.org/" target="_blank" rel="noreferrer">Strawmap roadmap <ExternalArrow /></a>
-                <a href="https://pectrified.com/mainnet/validator" target="_blank" rel="noreferrer">Pectrified analytics <ExternalArrow /></a>
+                <a href="https://pectrified.com/mainnet" target="_blank" rel="noreferrer">Pectrified analytics <ExternalArrow /></a>
+                <a href="https://beaconscan.com/validator" target="_blank" rel="noreferrer">Beaconscan validators <ExternalArrow /></a>
                 <a href="https://docs.beaconcha.in/api-reference/epochs/epoch-overview" target="_blank" rel="noreferrer">Beaconcha.in epoch API <ExternalArrow /></a>
               </div>
             </div>
@@ -382,8 +615,10 @@ function ProposalTrackerSection() {
           return (
             <article
               className={`proposal-row role-${proposal.role}`}
+              id={`proposal-${proposal.id}`}
               key={proposal.id}
               role="listitem"
+              tabIndex={-1}
             >
               <div className="proposal-identity">
                 <span>{proposal.eip ? `EIP-${proposal.eip}` : "Research"}</span>
@@ -419,41 +654,34 @@ function ProposalTrackerSection() {
 }
 
 export default function Home() {
-  const [network, setNetwork] = useState<NetworkSummary>(FALLBACK_NETWORK);
+  const network = networkSnapshot;
   const [scenarioValidators, setScenarioValidators] = useState(128_000);
   const [enabledImprovementIds, setEnabledImprovementIds] = useState<
     RoundImprovementId[]
   >([...DEFAULT_ROUND_IMPROVEMENTS]);
+  const [openControlHelpId, setOpenControlHelpId] = useState<string | null>(null);
+  const [showFinalityExplainer, setShowFinalityExplainer] = useState(false);
   const [slotSeconds, setSlotSeconds] = useState(SLOT_SECONDS);
   const [oneRoundFinality, setOneRoundFinality] = useState(false);
+  const [animationsPaused, setAnimationsPaused] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (!openControlHelpId) return;
 
-    async function refreshNetworkSummary() {
-      try {
-        const response = await fetch("/api/network-summary", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpenControlHelpId(null);
+      document
+        .getElementById(`control-help-trigger-${openControlHelpId}`)
+        ?.focus();
+    };
 
-        if (!response.ok) return;
-        const summary = (await response.json()) as NetworkSummary;
+    document.addEventListener("keydown", dismissOnEscape);
 
-        if (
-          Number.isFinite(summary.activeValidators) &&
-          summary.activeValidators >= MIN_SCENARIO_VALIDATORS
-        ) {
-          setNetwork(summary);
-        }
-      } catch {
-        // The dated, clearly labelled snapshot remains visible when live data fails.
-      }
-    }
-
-    void refreshNetworkSummary();
-    return () => controller.abort();
-  }, []);
+    return () => {
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [openControlHelpId]);
 
   const model = useMemo(
     () =>
@@ -467,7 +695,7 @@ export default function Home() {
   );
 
   const presets = [
-    { label: "Today", shortLabel: "Today", value: network.activeValidators },
+    { label: "Snapshot", shortLabel: "Snapshot", value: network.activeValidators },
     { label: "128k target", shortLabel: "128k", value: 128_000 },
     { label: "16k scenario", shortLabel: "16k", value: 16_000 },
   ];
@@ -475,7 +703,7 @@ export default function Home() {
   const chart = {
     width: 920,
     height: 360,
-    left: 62,
+    left: 78,
     right: 30,
     top: 30,
     bottom: 56,
@@ -559,7 +787,7 @@ export default function Home() {
           ? "curve-combined"
           : improvement.strokeClass,
       assumption: isCombined
-        ? "Exploratory stack. The selected gains multiply before the physical floor and whole-slot rounding."
+        ? "Exploratory stack. The selected gains multiply before the decentralization floor and whole-slot rounding."
         : improvement.assumption,
       improvements,
     };
@@ -676,6 +904,31 @@ export default function Home() {
         : [...current, improvementId],
     );
   };
+  const helpTriggerStateFor = (helpId: string) => ({
+    helpId,
+    isOpen: openControlHelpId === helpId,
+    onToggle: () =>
+      setOpenControlHelpId((current) => (current === helpId ? null : helpId)),
+  });
+  const activeControlHelp = openControlHelpId
+    ? CONTROL_HELP_BY_ID.get(openControlHelpId) ?? null
+    : null;
+  const closeControlHelp = (restoreFocus = true) => {
+    const helpId = openControlHelpId;
+    setOpenControlHelpId(null);
+
+    if (restoreFocus && helpId) {
+      window.requestAnimationFrame(() => {
+        document.getElementById(`control-help-trigger-${helpId}`)?.focus();
+      });
+    }
+  };
+  const closeFinalityExplainer = () => {
+    setShowFinalityExplainer(false);
+    window.requestAnimationFrame(() => {
+      document.getElementById("finality-breakdown-trigger")?.focus();
+    });
+  };
 
   return (
     <main>
@@ -683,8 +936,15 @@ export default function Home() {
         <div>
           <strong>Work in progress</strong>
           <span>
-            This research preview is under active development and has not
-            officially launched.
+            This research preview is under active development. {" "}
+            <a
+              aria-label="Share feedback in the public research discussion (opens in a new tab)"
+              href="https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Share feedback <ExternalArrow />
+            </a>
           </span>
         </div>
       </aside>
@@ -713,15 +973,11 @@ export default function Home() {
           </div>
           <aside className="model-network" aria-label="Ethereum validator identity count">
           <div
-            className={`network-status ${network.stale ? "is-stale" : ""}`}
-            aria-label={
-              network.stale
-                ? "Using a dated network snapshot"
-                : "Using live network data"
-            }
+            className="network-status is-snapshot"
+            aria-label="Using a dated network snapshot"
           >
             <span className="status-dot" aria-hidden="true" />
-            {network.stale ? "Dated snapshot" : "Live network data"}
+            Network snapshot
           </div>
           <p>
             <strong>{numberFormatter.format(network.activeValidators)}</strong>
@@ -750,22 +1006,38 @@ export default function Home() {
               </div>
               <div className="round-result">
                 <span>Full-set round</span>
-                <strong>≈{formatDuration(model.roundSeconds)}</strong>
+                <strong>
+                  <Approximate value={formatDuration(model.roundSeconds)} />
+                </strong>
                 <small>
                   {model.roundSlots} {model.roundSlots === 1 ? "slot" : "slots"} × {slotSeconds} sec
-                  {model.floorLimited ? " · 8-sec floor active" : ""}
+                  {model.floorLimited
+                    ? ` · ${DECENTRALIZATION_FLOOR_SECONDS}-sec decentralization floor active`
+                    : ""}
                 </small>
               </div>
               <div className="finality-result">
-                <span>Expected finality</span>
-                <strong>≈{formatDuration(finalityTiming.totalSeconds)}</strong>
-                <small>
-                  {finalityTiming.finalityRounds === 1 ? "one" : "two"} voting{" "}
-                  {finalityTiming.finalityRounds === 1 ? "round" : "rounds"}
-                  {" · "}
-                  {model.roundSlots}{" "}
-                  {model.roundSlots === 1 ? "slot" : "slots"} / round
-                </small>
+                <span>Modeled expected finality</span>
+                <strong>
+                  <Approximate value={formatDuration(finalityTiming.totalSeconds)} />
+                </strong>
+                <button
+                  aria-controls="expected-finality-breakdown"
+                  aria-expanded={showFinalityExplainer}
+                  className="metric-breakdown-trigger"
+                  id="finality-breakdown-trigger"
+                  onClick={() => setShowFinalityExplainer((current) => !current)}
+                  type="button"
+                >
+                  <span>
+                    {showFinalityExplainer
+                      ? "Hide calculation"
+                      : "View calculation"}
+                  </span>
+                  <i aria-hidden="true">
+                    {showFinalityExplainer ? "−" : "+"}
+                  </i>
+                </button>
               </div>
             </div>
 
@@ -786,50 +1058,93 @@ export default function Home() {
                 );
               })}
             </div>
+
+            <p className="model-scenario-note">
+              <strong>Exploratory scenario—not a forecast.</strong>{" "}
+              {formatCompactCount(model.validators)} identities ·{" "}
+              {formatGain(model.gains.total)} stacked networking gain ·{" "}
+              {slotSeconds}-second slots · {oneRoundFinality ? "one" : "two"}{" "}
+              finality {oneRoundFinality ? "round" : "rounds"}
+            </p>
           </div>
+
+          <section
+            className="finality-layer"
+            aria-label="Expected finality explanation"
+            hidden={!showFinalityExplainer}
+            id="expected-finality-breakdown"
+          >
+            <div className="finality-explainer">
+              <div className="finality-explainer-heading">
+                <span>Timing breakdown</span>
+                <button
+                  onClick={closeFinalityExplainer}
+                  type="button"
+                >
+                  <span>Close</span>
+                  <i aria-hidden="true">×</i>
+                </button>
+              </div>
+              <div className="finality-explainer-content">
+                <FinalityTimingDiagram timing={finalityTiming} />
+              </div>
+            </div>
+          </section>
 
           <div className="improvement-toolbar" aria-label="Timing improvements">
             <div className="improvement-group improvement-networking">
-              <span>Round networking · {formatGain(model.gains.total)} active</span>
+              <div className="control-heading networking-heading">
+                <span>
+                  Round networking · {formatGain(model.gains.total)} active
+                </span>
+                <ControlHelpTrigger
+                  {...helpTriggerStateFor("networking")}
+                  triggerLabel="About the active networking gain"
+                />
+              </div>
               <div className="improvement-buttons">
                 {ROUND_IMPROVEMENTS.map((improvement) => {
                   const active = enabledImprovementIds.includes(improvement.id);
-                  const improvementGain =
-                    improvement.id === "dc"
-                      ? 4
-                      : improvement.id === "eip-8334"
-                        ? 2
-                        : calculateRoundModel({
-                            validators: model.validators,
-                            slotSeconds,
-                            enabledImprovements: ["eip-8243"],
-                          }).gains.source;
+                  const displayedGain = calculateRoundImprovementGain(
+                    improvement.id,
+                    model.validators,
+                  );
 
                   return (
-                    <button
-                      className={`improvement-button ${improvement.strokeClass} ${active ? "is-result" : ""}`}
-                      type="button"
-                      key={improvement.id}
-                      aria-pressed={active}
-                      onClick={() => toggleImprovement(improvement.id)}
-                    >
-                      <i aria-hidden="true" />
-                      <span>{improvement.shortLabel}</span>
-                      <b>{improvement.gainLabel}</b>
-                      <small>
-                        {active
-                          ? `Included · ${formatGain(improvementGain)}`
-                          : `Add · ${improvement.gainLabel}`}
-                      </small>
-                    </button>
+                    <div className="improvement-control" key={improvement.id}>
+                      <button
+                        className={`improvement-button ${improvement.strokeClass} ${active ? "is-result" : ""}`}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleImprovement(improvement.id)}
+                      >
+                        <i aria-hidden="true" />
+                        <span>{improvement.shortLabel}</span>
+                        <b>{formatGain(displayedGain)}</b>
+                        <small>
+                          {active ? "Included" : "Add to model"}
+                        </small>
+                      </button>
+                      <ControlHelpTrigger
+                        {...helpTriggerStateFor(`improvement-${improvement.id}`)}
+                        triggerLabel={`About ${improvement.shortLabel}`}
+                      />
+                    </div>
                   );
                 })}
               </div>
             </div>
 
             <fieldset className="improvement-group improvement-rounds">
-              <legend>Finality rounds</legend>
-              <div>
+              <legend className="sr-only">Finality rounds</legend>
+              <div className="control-heading finality-rounds-heading">
+                <span aria-hidden="true">Finality rounds</span>
+                <ControlHelpTrigger
+                  {...helpTriggerStateFor("finality-rounds")}
+                  triggerLabel="About finality rounds"
+                />
+              </div>
+              <div className="round-options">
                 <label>
                   <input
                     type="radio"
@@ -854,10 +1169,14 @@ export default function Home() {
             </fieldset>
 
             <div className="improvement-group slot-time-control">
-              <label htmlFor="slot-time">
-                Slot time
+              <div className="control-heading slot-time-heading">
+                <label htmlFor="slot-time">Slot time</label>
                 <output htmlFor="slot-time">{slotSeconds} sec</output>
-              </label>
+                <ControlHelpTrigger
+                  {...helpTriggerStateFor("slot-time")}
+                  triggerLabel="About slot time"
+                />
+              </div>
               <input
                 id="slot-time"
                 className="slot-time-range"
@@ -873,68 +1192,94 @@ export default function Home() {
                 <span>12 sec today</span>
                 <span>1 sec exploratory</span>
               </div>
-              <small>Sets block cadence and round granularity—not FG throughput</small>
             </div>
-          </div>
 
-          <div className="range-control range-control-above-chart">
-            <div className="range-labels">
-              <label htmlFor="validator-scenario">
-                Consolidate validator identities
-              </label>
-              <output htmlFor="validator-scenario">
-                {numberFormatter.format(model.validators)} remain
-              </output>
-            </div>
-            <input
-              id="validator-scenario"
-              className="scenario-range"
-              type="range"
-              min="0"
-              max={rangeMaximum}
-              step="1000"
-              value={rangeValue}
-              aria-valuetext={`${numberFormatter.format(model.validators)} validator identities remain`}
-              onChange={(event) =>
-                setScenarioValidators(
-                  Math.max(
-                    MIN_SCENARIO_VALIDATORS,
-                    scenarioMaximum - Number(event.target.value),
-                  ),
-                )
-              }
-              aria-describedby="range-help"
-            />
-            <div className="range-bounds" id="range-help">
-              <span>{formatCompactCount(scenarioMaximum)} reference</span>
-              <span>Drag or use arrow keys</span>
-            </div>
-            <p className="sr-only">
-              {numberFormatter.format(model.validators)} validator identities
-              remain, with a modeled round of {model.roundSlots} slots, or{" "}
-              {formatDuration(model.roundSeconds)}, at a total modeled gain of{" "}
-              {formatGain(model.gains.total)}.
-            </p>
+            {activeControlHelp && activeControlHelp.placement !== "chart" ? (
+              <ControlHelpPanel
+                help={activeControlHelp}
+                onClose={closeControlHelp}
+              />
+            ) : null}
           </div>
 
           <div className="chart-wrap">
+            <div className="range-control chart-axis-control">
+              <div className="range-labels">
+                <span className="range-label-copy">
+                  <label htmlFor="validator-scenario">
+                    Consolidation progress
+                  </label>
+                  <a
+                    className="consolidation-source-link"
+                    href="https://pectrified.com/mainnet"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Pectrified <ExternalArrow />
+                  </a>
+                  <ControlHelpTrigger
+                    {...helpTriggerStateFor("validator-consolidation")}
+                    triggerLabel="About validator consolidation"
+                  />
+                </span>
+                <output htmlFor="validator-scenario">
+                  {numberFormatter.format(model.validators)} remain
+                </output>
+              </div>
+              <input
+                id="validator-scenario"
+                className="scenario-range"
+                type="range"
+                min="0"
+                max={rangeMaximum}
+                step="1000"
+                value={rangeValue}
+                aria-valuetext={`${numberFormatter.format(model.validators)} validator identities remain`}
+                onChange={(event) =>
+                  setScenarioValidators(
+                    Math.max(
+                      MIN_SCENARIO_VALIDATORS,
+                      scenarioMaximum - Number(event.target.value),
+                    ),
+                  )
+                }
+                aria-describedby="range-help"
+              />
+              <div className="range-bounds" id="range-help">
+                <span>{formatCompactCount(scenarioMaximum)} reference</span>
+                <span>Drag or use arrow keys</span>
+                <span>{formatCompactCount(MIN_SCENARIO_VALIDATORS)} remain</span>
+              </div>
+              {activeControlHelp?.placement === "chart" ? (
+                <ControlHelpPanel
+                  help={activeControlHelp}
+                  onClose={closeControlHelp}
+                />
+              ) : null}
+              <p className="sr-only">
+                {numberFormatter.format(model.validators)} validator identities
+                remain, with a modeled round of {model.roundSlots} slots, or{" "}
+                {formatDuration(model.roundSeconds)}, at a total modeled gain of{" "}
+                {formatGain(model.gains.total)}.
+              </p>
+            </div>
+
             <svg
               className="capacity-chart"
               viewBox={`0 0 ${chart.width} ${chart.height}`}
               role="img"
-              aria-labelledby="capacity-chart-title capacity-chart-description"
+              aria-label="Modeled full-set round time falls as consolidation increases"
+              aria-describedby="capacity-chart-description"
             >
-              <title id="capacity-chart-title">
-                Modeled full-set round time falls as consolidation increases
-              </title>
               <desc id="capacity-chart-description">
                 A descending whole-slot capacity proxy. The x-axis shows the
                 validator identities remaining, from {scenarioMaximum}
                 on the left to {MIN_SCENARIO_VALIDATORS} on the right. The
                 selected scenario leaves {model.validators} identities and
                 requires {model.roundSlots} whole slots at {slotSeconds}
-                seconds each, or {model.roundSeconds} seconds. Today is marked
-                separately at the unchanged 32-slot protocol cadence.
+                seconds each, or approximately {model.roundSeconds} seconds.
+                Today is marked separately at the unchanged 32-slot protocol
+                cadence.
               </desc>
 
               {roundTimeTicks.map((tick) => (
@@ -953,7 +1298,7 @@ export default function Home() {
 
               <text
                 className="axis-title"
-                transform={`translate(17 ${chart.top + plotHeight / 2}) rotate(-90)`}
+                transform={`translate(13 ${chart.top + plotHeight / 2}) rotate(-90)`}
                 textAnchor="middle"
               >
                 modeled round time
@@ -987,12 +1332,14 @@ export default function Home() {
               <circle className="selected-halo" cx={selectedX} cy={selectedY} r="13" />
               <circle className="selected-point" cx={selectedX} cy={selectedY} r="5" />
               <text
+                aria-hidden="true"
                 className="selected-label"
                 x={selectedX > chart.width - 150 ? selectedX - 12 : selectedX + 12}
                 y={selectedY - 15}
                 textAnchor={selectedX > chart.width - 150 ? "end" : "start"}
               >
-                ≈{formatDuration(model.roundSeconds)}
+                <tspan className="approximation-mark-svg">≈</tspan>
+                <tspan>{formatDuration(model.roundSeconds)}</tspan>
               </text>
 
               <circle className="current-point" cx={currentX} cy={currentY} r="4" />
@@ -1047,21 +1394,11 @@ export default function Home() {
                   </g>
                   );
                 })}
-              <text
-                className="x-axis-title"
-                x={chart.left + plotWidth / 2}
-                y={chart.height - 6}
-                textAnchor="middle"
-              >
-                validator identities remaining · fewer →
-              </text>
             </svg>
-            <div className="mobile-chart-axis" aria-hidden="true">
-              <span>{formatCompactCount(scenarioMaximum)} reference</span>
-              <span>{formatCompactCount(MIN_SCENARIO_VALIDATORS)} remain →</span>
-            </div>
+
             <p className="mobile-chart-result">
-              Selected point: ≈{formatDuration(model.roundSeconds)} full-set round
+              Selected point:{" "}
+              <Approximate value={formatDuration(model.roundSeconds)} /> full-set round
             </p>
             <div className="curve-readouts">
               {curveReadouts.map((curve) => (
@@ -1074,7 +1411,9 @@ export default function Home() {
                       <strong>{curve.label}</strong>
                       <small>{curve.assumption}</small>
                     </span>
-                    <b>≈{formatDuration(curve.result.roundSeconds)}</b>
+                    <b>
+                      <Approximate value={formatDuration(curve.result.roundSeconds)} />
+                    </b>
                     <em>
                       {curve.result.roundSlots}{" "}
                       {curve.result.roundSlots === 1 ? "slot" : "slots"} ×{" "}
@@ -1086,42 +1425,6 @@ export default function Home() {
             </div>
           </div>
 
-          <section
-            className="finality-layer"
-            aria-label="Expected finality formula"
-          >
-            <details className="finality-explainer">
-              <summary className="finality-equation">
-                <span className="finality-equation-row">
-                  <span>
-                    {formatDuration(finalityTiming.expectedPreVotingSeconds)} expected
-                    wait to voting
-                  </span>
-                  <i aria-hidden="true">+</i>
-                  <span>
-                    {finalityTiming.finalityRounds} ×{" "}
-                    {formatDuration(finalityTiming.roundSeconds)}
-                  </span>
-                  <i aria-hidden="true">→</i>
-                  <strong>= {formatDuration(finalityTiming.totalSeconds)}</strong>
-                </span>
-                <span className="finality-equation-action">
-                  More info &amp; visualization <i aria-hidden="true">+</i>
-                </span>
-              </summary>
-              <div className="finality-explainer-content">
-                <p id="finality-explainer-copy">
-                  A transaction arrives uniformly within a slot. Inclusion takes
-                  half a slot on average. After its block is included, the model
-                  adds an independent half-round wait before the block becomes an
-                  input to the finality gadget. Voting then takes one or two full
-                  rounds. This simplified timing assumes the block is confirmed
-                  and eligible; it does not add a separate confirmation delay.
-                </p>
-                <FinalityTimingDiagram timing={finalityTiming} />
-              </div>
-            </details>
-          </section>
         </div>
 
       </section>
@@ -1142,15 +1445,26 @@ export default function Home() {
             </h2>
           </div>
           <p>
-            Decoupled consensus gives availability and finality separate lanes.
+            Decoupled consensus gives fast confirmation and finality separate lanes.
           </p>
+        </div>
+
+        <div className="motion-control-row">
+          <button
+            aria-pressed={animationsPaused}
+            className="motion-control-button"
+            onClick={() => setAnimationsPaused((current) => !current)}
+            type="button"
+          >
+            {animationsPaused ? "Resume animations" : "Pause animations"}
+          </button>
         </div>
 
         <div
           className="two-lane-visual"
           role="img"
           aria-label={
-            "Moving comparison with one normalized animation step per second; the today and decoupled-candidate lanes are shown twelve times faster than wall clock. Today has 32-slot rounds, green justified blocks after one round, and finality after two rounds or 64 slots. The decoupled candidate has 8-slot rounds, green stabilization after one round, and finality after two rounds or 16 slots. Both show justification above finality-vote progress. The north-star example has one-second blocks, fast confirmation, two-slot one-round finality after two seconds, and finality following the head every slot at a one-second distance."
+            "Moving comparison with one normalized animation step per second; the today and decoupled-candidate lanes are shown twelve times faster than wall clock. Today has 32-slot rounds, green justified blocks after one round, and finality after two rounds or 64 slots. In the decoupled candidate, stabilization trails the fast-confirmed chain by one eight-slot round, and finality arrives after two rounds or 16 slots. Both show justification above finality-vote progress. The north-star example has one-second blocks, fast confirmation, two-slot one-round finality after two seconds, and finality following the head every slot at a one-second distance."
           }
         >
           <div className="playback-badge" aria-hidden="true">
@@ -1161,7 +1475,10 @@ export default function Home() {
             <div className="lane-label">
               <span>Coupled today</span>
               <strong>Justified after one round</strong>
-              <small>12-sec blocks · finality speed baseline · ≈{formatDuration(currentFinalityTiming.totalSeconds)} expected</small>
+              <small>
+                12-sec blocks · finality speed baseline ·{" "}
+                <Approximate value={formatDuration(currentFinalityTiming.totalSeconds)} /> expected
+              </small>
               <div className="lane-round-metrics">
                 <b>32</b><span>slots / round</span><em>32 slots to justify · 64 to finalize</em>
               </div>
@@ -1172,13 +1489,14 @@ export default function Home() {
                 finalityRounds={2}
                 stabilizationLagSlots={32}
                 tickMs={1_000}
+                paused={animationsPaused}
               />
             </div>
           </div>
           <div className="consensus-lane lane-decoupled">
             <div className="lane-label">
               <span>Decoupled candidate</span>
-              <strong>Stabilization follows the available chain</strong>
+              <strong>Stabilization follows fast confirmation</strong>
               <small>12-sec blocks · 4× finality speedup</small>
               <div className="lane-round-metrics">
                 <b>8</b><span>slots / round</span><em>2 rounds · 16-slot finality lag</em>
@@ -1190,6 +1508,7 @@ export default function Home() {
                 finalityRounds={2}
                 stabilizationLagSlots={8}
                 tickMs={1_000}
+                paused={animationsPaused}
               />
             </div>
           </div>
@@ -1197,7 +1516,7 @@ export default function Home() {
             <div className="lane-label">
               <span>North star</span>
               <strong>One-round finality</strong>
-              <small>1-sec blocks · 2-sec finality · 384× finality speedup</small>
+              <small>1-sec blocks · 2-sec protocol finality lag</small>
               <div className="lane-round-metrics">
                 <b>2</b><span>slots / round</span><em>1 round · finality follows every 1 sec</em>
               </div>
@@ -1209,11 +1528,12 @@ export default function Home() {
                 checkpointLagSlots={1}
                 stabilizationLagSlots={null}
                 tickMs={1_000}
+                paused={animationsPaused}
               />
             </div>
           </div>
           <div className="lane-key" aria-hidden="true">
-            <span><i className="key-dot is-teal" />available</span>
+            <span><i className="key-dot is-teal" />fast confirmed</span>
             <span><i className="key-dot is-sage" />justified today · stabilized in DC</span>
             <span><i className="key-dot is-clay" />finalized checkpoint</span>
           </div>
@@ -1239,7 +1559,17 @@ export default function Home() {
             the full set.
           </p>
         </div>
-        <DcVotingPattern />
+        <div className="motion-control-row motion-control-row-voting">
+          <button
+            aria-pressed={animationsPaused}
+            className="motion-control-button"
+            onClick={() => setAnimationsPaused((current) => !current)}
+            type="button"
+          >
+            {animationsPaused ? "Resume animations" : "Pause animations"}
+          </button>
+        </div>
+        <DcVotingPattern paused={animationsPaused} />
       </section>
 
       <footer>
@@ -1252,7 +1582,17 @@ export default function Home() {
           finality<span>.watch</span>
         </a>
         <p>Exploring the path to faster Ethereum finality.</p>
-        <a href="#top">Back to top ↑</a>
+        <div className="footer-links">
+          <a
+            aria-label="Share feedback in the public research discussion (opens in a new tab)"
+            href="https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Share feedback <ExternalArrow />
+          </a>
+          <a href="#top">Back to top ↑</a>
+        </div>
       </footer>
     </main>
   );

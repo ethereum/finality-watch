@@ -10,21 +10,28 @@ Requires Node.js `>=22.13.0`.
 
 ```bash
 npm ci
-cp .env.example .env.local
 npm run dev
 ```
 
 Open `http://localhost:3000`.
 
-The site works without an API key by showing a clearly dated Pectrified
-snapshot. To refresh the active-validator count from Beaconcha.in, add a valid
-key to `.env.local`:
+The deployed site uses the checked-in snapshot at
+`app/data/network-snapshot.json`; it never contacts a network-data provider at
+runtime. Refresh that snapshot locally when needed:
+
+```bash
+npm run snapshot:network
+```
+
+Without a key, the updater reads Beaconscan's public validator summary. To use
+Beaconcha.in instead, copy `.env.example` to `.env.local` and add a valid key:
 
 ```bash
 BEACONCHAIN_API_KEY=your_key_here
 ```
 
-The key is used only by the server route and is never sent to the browser.
+The key is used only by the local updater and is never included in a build or
+sent to the browser.
 
 ## Validate
 
@@ -33,5 +40,5 @@ npm run build
 npm test
 ```
 
-The round and finality model lives in `app/lib/model.ts`; the network summary
-route is `app/api/network-summary/route.ts`.
+The round and finality model lives in `app/lib/model.ts`; the network snapshot
+is `app/data/network-snapshot.json`.

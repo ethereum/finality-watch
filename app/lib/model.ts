@@ -4,7 +4,7 @@ export const MIN_SCENARIO_VALIDATORS = 16_000;
 export const REFERENCE_VALIDATORS = 1_100_000;
 export const REFERENCE_ATTESTERS_PER_SLOT = 34_375;
 export const REFERENCE_ROUND_SECONDS = CURRENT_ROUND_SLOTS * SLOT_SECONDS;
-export const SINGLE_COHORT_FLOOR_SECONDS = 8;
+export const DECENTRALIZATION_FLOOR_SECONDS = 4;
 export const MAX_ASSIGNED_ATTESTERS_PER_SLOT = 131_072;
 
 export type RoundImprovementId = "dc" | "eip-8334" | "eip-8243";
@@ -62,6 +62,15 @@ export function calculateSourceBatchingGain(validators: number) {
   return 1 + (safeValidators - 128_000) / (500_000 - 128_000);
 }
 
+export function calculateRoundImprovementGain(
+  improvement: RoundImprovementId,
+  validators: number,
+) {
+  if (improvement === "dc") return 4;
+  if (improvement === "eip-8334") return 2;
+  return calculateSourceBatchingGain(validators);
+}
+
 export function calculateRoundModel({
   validators,
   slotSeconds,
@@ -75,17 +84,21 @@ export function calculateRoundModel({
     ? clamp(Math.round(slotSeconds), 1, SLOT_SECONDS)
     : SLOT_SECONDS;
   const enabled = new Set(enabledImprovements);
-  const dcGain = enabled.has("dc") ? 4 : 1;
-  const bundledGain = enabled.has("eip-8334") ? 2 : 1;
+  const dcGain = enabled.has("dc")
+    ? calculateRoundImprovementGain("dc", safeValidators)
+    : 1;
+  const bundledGain = enabled.has("eip-8334")
+    ? calculateRoundImprovementGain("eip-8334", safeValidators)
+    : 1;
   const sourceGain = enabled.has("eip-8243")
-    ? calculateSourceBatchingGain(safeValidators)
+    ? calculateRoundImprovementGain("eip-8243", safeValidators)
     : 1;
   const totalGain = dcGain * bundledGain * sourceGain;
   const baselineRoundSeconds =
     (REFERENCE_ROUND_SECONDS * safeValidators) / REFERENCE_VALIDATORS;
   const unflooredRoundSeconds = baselineRoundSeconds / totalGain;
   const rawRoundSeconds = Math.max(
-    SINGLE_COHORT_FLOOR_SECONDS,
+    DECENTRALIZATION_FLOOR_SECONDS,
     unflooredRoundSeconds,
   );
   const roundSlots = Math.max(1, Math.ceil(rawRoundSeconds / safeSlotSeconds));
@@ -105,7 +118,7 @@ export function calculateRoundModel({
     },
     unflooredRoundSeconds,
     rawRoundSeconds,
-    floorLimited: unflooredRoundSeconds < SINGLE_COHORT_FLOOR_SECONDS,
+    floorLimited: unflooredRoundSeconds < DECENTRALIZATION_FLOOR_SECONDS,
     roundSlots,
     roundSeconds,
     finality: calculateFinalityTiming(

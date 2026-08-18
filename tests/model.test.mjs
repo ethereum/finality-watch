@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DECENTRALIZATION_FLOOR_SECONDS,
   MAX_ASSIGNED_ATTESTERS_PER_SLOT,
   REFERENCE_ATTESTERS_PER_SLOT,
   REFERENCE_VALIDATORS,
   calculateFinalityTiming,
+  calculateRoundImprovementGain,
   calculateRoundModel,
   calculateSourceBatchingGain,
   formatDuration,
@@ -99,13 +101,17 @@ test("networking sensitivities stack and source batching fades with consolidatio
   assert.equal(calculateSourceBatchingGain(314_000), 1.5);
   assert.equal(calculateSourceBatchingGain(128_000), 1);
   assert.equal(calculateSourceBatchingGain(16_000), 1);
+  assert.equal(calculateRoundImprovementGain("dc", 26_000), 4);
+  assert.equal(calculateRoundImprovementGain("eip-8334", 26_000), 2);
+  assert.equal(calculateRoundImprovementGain("eip-8243", 314_000), 1.5);
   assert.equal(floorLimited.gains.total, 8);
-  assert.equal(floorLimited.rawRoundSeconds, 8);
+  assert.equal(DECENTRALIZATION_FLOOR_SECONDS, 4);
+  assert.equal(floorLimited.rawRoundSeconds, 4);
   assert.equal(floorLimited.floorLimited, true);
-  assert.equal(floorLimited.roundSlots, 8);
-  assert.equal(formatDuration(floorLimited.roundSeconds), "8 sec");
-  assert.equal(fiveSecondFloor.roundSlots, 2);
-  assert.equal(fiveSecondFloor.roundSeconds, 10);
+  assert.equal(floorLimited.roundSlots, 4);
+  assert.equal(formatDuration(floorLimited.roundSeconds), "4 sec");
+  assert.equal(fiveSecondFloor.roundSlots, 1);
+  assert.equal(fiveSecondFloor.roundSeconds, 5);
   assert.equal(twelveSecondFloor.roundSlots, 1);
   assert.equal(twelveSecondFloor.roundSeconds, 12);
 });
