@@ -679,6 +679,16 @@ export default function Home() {
 
   return (
     <main>
+      <aside className="wip-banner" aria-label="Work in progress notice">
+        <div>
+          <strong>Work in progress</strong>
+          <span>
+            This research preview is under active development and has not
+            officially launched.
+          </span>
+        </div>
+      </aside>
+
       <header className="site-header" id="top">
         <a className="brand" href="#top" aria-label="finality.watch home">
           <span className="brand-mark" aria-hidden="true">
