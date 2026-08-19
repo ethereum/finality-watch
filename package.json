@@ -2,6 +2,7 @@
   "name": "finality-watch",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -11,6 +12,7 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "snapshot:network": "node --env-file-if-exists=.env.local scripts/update-network-snapshot.mjs",
     "test": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {

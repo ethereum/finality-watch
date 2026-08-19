@@ -1,0 +1,78 @@
+name: Bug report
+description: Report broken behavior, rendering, accessibility, or development problems.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. finality.watch is a work in progress;
+        precise reproduction details help us separate software bugs from model feedback.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and did not find this problem.
+          required: true
+        - label: I am reporting a software, display, accessibility, or development problem rather than a model assumption.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Live site
+        - Model controls or displayed results
+        - Network snapshot
+        - Accessibility or responsive layout
+        - Local development, build, or tests
+        - Link preview or metadata
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem
+      description: Describe what went wrong and where you saw it.
+      placeholder: A clear, concise description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the selected controls or local commands when relevant.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: For UI bugs, include browser, operating system, and viewport or device. For local failures, include Node.js and npm versions.
+      placeholder: Browser or Node.js version, operating system, and other relevant details.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add screenshots, recordings, logs, or links. Remove secrets and personal data first.

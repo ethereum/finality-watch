@@ -938,8 +938,8 @@ export default function Home() {
           <span>
             This research preview is under active development. {" "}
             <a
-              aria-label="Share feedback in the public research discussion (opens in a new tab)"
-              href="https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527"
+              aria-label="Share feedback on GitHub (opens in a new tab)"
+              href="https://github.com/yannvon/finality-watch/issues/new/choose"
               rel="noreferrer"
               target="_blank"
             >
@@ -1584,12 +1584,20 @@ export default function Home() {
         <p>Exploring the path to faster Ethereum finality.</p>
         <div className="footer-links">
           <a
-            aria-label="Share feedback in the public research discussion (opens in a new tab)"
-            href="https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527"
+            aria-label="Share feedback on GitHub (opens in a new tab)"
+            href="https://github.com/yannvon/finality-watch/issues/new/choose"
             rel="noreferrer"
             target="_blank"
           >
             Share feedback <ExternalArrow />
+          </a>
+          <a
+            aria-label="View finality.watch source on GitHub (opens in a new tab)"
+            href="https://github.com/yannvon/finality-watch"
+            rel="noreferrer"
+            target="_blank"
+          >
+            View source <ExternalArrow />
           </a>
           <a href="#top">Back to top ↑</a>
         </div>

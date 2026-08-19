@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Related EthResearch discussion
+    url: https://ethresear.ch/t/unblocking-faster-finality-with-decoupled-consensus/24527
+    about: Use EthResearch for broader Ethereum protocol research discussion, then link it from a project issue.

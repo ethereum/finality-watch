@@ -58,6 +58,20 @@ test("server-renders the consolidation explorer", async () => {
     html,
     /Work in progress[\s\S]*?Share feedback/,
   );
+  assert.equal(
+    html.split(
+      'href="https://github.com/yannvon/finality-watch/issues/new/choose"',
+    ).length - 1,
+    2,
+  );
+  assert.match(
+    html,
+    /class="footer-links"[\s\S]*?href="https:\/\/github\.com\/yannvon\/finality-watch"[\s\S]*?View source/,
+  );
+  assert.match(
+    html,
+    /href="https:\/\/ethresear\.ch\/t\/unblocking-faster-finality-with-decoupled-consensus\/24527"/,
+  );
   assert.match(html, /Finality explorer/);
   assert.match(html, /<a href="#methodology">Model<\/a>/);
   assert.match(html, /id="model"/);

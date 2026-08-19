@@ -1,0 +1,75 @@
+name: Model or research feedback
+description: Challenge an assumption, calculation, source, term, or missing scenario.
+title: "[Model]: "
+labels:
+  - model
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The explorer is intentionally simplified and open to challenge. Please
+        make the assumption and evidence behind the proposed change explicit.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for related feedback.
+          required: true
+        - label: I understand that this explorer is not a consensus specification or roadmap prediction.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feedback area
+      options:
+        - Validator counts or consolidation
+        - Slot timing or voting capacity
+        - Networking assumptions
+        - Finality construction
+        - Expected-time calculation
+        - Network data or source
+        - Terminology or explanation
+        - Missing scenario
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: concern
+    attributes:
+      label: Assumption or result to revisit
+      description: Identify the control, scenario, statement, or result as precisely as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning and evidence
+      description: Explain the concern and link primary sources, derivations, measurements, or prior discussion.
+      placeholder: Include enough detail for someone else to reproduce or evaluate the reasoning.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested treatment
+      description: Describe a concrete model, data, interface, or documentation change if you have one.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected impact
+      description: Which scenarios or conclusions would change, and in what direction?
+
+  - type: input
+    id: discussion
+    attributes:
+      label: Related discussion
+      description: Link a related GitHub issue, specification, or EthResearch discussion.
+      placeholder: https://...

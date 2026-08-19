@@ -1,0 +1,40 @@
+name: General feedback
+description: Share an impression, suggestion, or question that does not fit the other forms.
+title: "[Feedback]: "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying finality.watch. The project is a work in progress,
+        and concise reactions are useful even when you do not have a complete proposal.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for related feedback.
+          required: true
+
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Feedback
+      description: What was useful, unclear, surprising, or missing?
+      placeholder: Describe your experience or suggestion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include the relevant page section, scenario settings, or supporting links when applicable.
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Suggested improvement
+      description: If you have a concrete change in mind, describe it here.
