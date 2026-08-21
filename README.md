@@ -99,6 +99,11 @@ Forks should configure their own hosting project rather than attempting to
 publish to that identifier. No deployment credential or runtime secret is
 stored in the repository.
 
+Netlify uses the separate native Next.js build configured in `netlify.toml`.
+This is intentional: the default `vinext` build emits a Cloudflare Worker in
+`dist`, while Netlify's Next.js runtime consumes the `.next` output produced by
+`npm run build:netlify`.
+
 ## License
 
 Licensed under the [MIT License](LICENSE).
