@@ -5,7 +5,7 @@ research model is welcome while the project is a work in progress.
 
 ## Start with an issue
 
-Search the [existing issues](https://github.com/yannvon/finality-watch/issues)
+Search the [existing issues](https://github.com/ethereum/finality-watch/issues)
 before opening a new one.
 
 - Use the bug form for broken behavior, incorrect rendering, accessibility

@@ -939,7 +939,7 @@ export default function Home() {
             This research preview is under active development. {" "}
             <a
               aria-label="Share feedback on GitHub (opens in a new tab)"
-              href="https://github.com/yannvon/finality-watch/issues/new/choose"
+              href="https://github.com/ethereum/finality-watch/issues/new/choose"
               rel="noreferrer"
               target="_blank"
             >
@@ -1585,7 +1585,7 @@ export default function Home() {
         <div className="footer-links">
           <a
             aria-label="Share feedback on GitHub (opens in a new tab)"
-            href="https://github.com/yannvon/finality-watch/issues/new/choose"
+            href="https://github.com/ethereum/finality-watch/issues/new/choose"
             rel="noreferrer"
             target="_blank"
           >
@@ -1593,7 +1593,7 @@ export default function Home() {
           </a>
           <a
             aria-label="View finality.watch source on GitHub (opens in a new tab)"
-            href="https://github.com/yannvon/finality-watch"
+            href="https://github.com/ethereum/finality-watch"
             rel="noreferrer"
             target="_blank"
           >

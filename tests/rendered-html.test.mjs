@@ -60,13 +60,13 @@ test("server-renders the consolidation explorer", async () => {
   );
   assert.equal(
     html.split(
-      'href="https://github.com/yannvon/finality-watch/issues/new/choose"',
+      'href="https://github.com/ethereum/finality-watch/issues/new/choose"',
     ).length - 1,
     2,
   );
   assert.match(
     html,
-    /class="footer-links"[\s\S]*?href="https:\/\/github\.com\/yannvon\/finality-watch"[\s\S]*?View source/,
+    /class="footer-links"[\s\S]*?href="https:\/\/github\.com\/ethereum\/finality-watch"[\s\S]*?View source/,
   );
   assert.match(
     html,

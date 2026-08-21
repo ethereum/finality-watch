@@ -38,7 +38,7 @@ adversarial condition, or economic consideration.
 
 ## Feedback
 
-[GitHub Issues](https://github.com/yannvon/finality-watch/issues/new/choose) are
+[GitHub Issues](https://github.com/ethereum/finality-watch/issues/new/choose) are
 the primary feedback channel. Use the bug form for software or display
 problems, the model-feedback form for assumptions, calculations, sources, and
 missing scenarios, or the general-feedback form for anything that does not fit
