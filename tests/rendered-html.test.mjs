@@ -1,31 +1,97 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { access, readFile } from "node:fs/promises";
-import test from "node:test";
+import { createServer } from "node:net";
+import test, { after, before } from "node:test";
+import { fileURLToPath } from "node:url";
 
-async function render(pathname = "/", requestHeaders = {}) {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+const projectDirectory = fileURLToPath(new URL("..", import.meta.url));
+const nextCli = fileURLToPath(
+  new URL("../node_modules/next/dist/bin/next", import.meta.url),
+);
+let serverOrigin = "";
+let serverProcess;
+let serverOutput = "";
 
-  return worker.fetch(
-    new Request(`https://finality.watch${pathname}`, {
-      headers: {
-        accept: "text/html",
-        host: "finality.watch",
-        "x-forwarded-host": "finality.watch",
-        ...requestHeaders,
-      },
-    }),
+function findAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Could not allocate a local test port"));
+        return;
+      }
+
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve(address.port);
+      });
+    });
+  });
+}
+
+before(async () => {
+  const port = await findAvailablePort();
+  serverOrigin = `http://127.0.0.1:${port}`;
+  serverProcess = spawn(
+    process.execPath,
+    [nextCli, "start", "--hostname", "127.0.0.1", "--port", String(port)],
     {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
+      cwd: projectDirectory,
+      env: { ...process.env, NODE_ENV: "production" },
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
+
+  const recordOutput = (chunk) => {
+    serverOutput = `${serverOutput}${chunk}`.slice(-12_000);
+  };
+  serverProcess.stdout.on("data", recordOutput);
+  serverProcess.stderr.on("data", recordOutput);
+
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (serverProcess.exitCode !== null) {
+      throw new Error(`Next.js test server exited early:\n${serverOutput}`);
+    }
+
+    try {
+      const response = await fetch(serverOrigin, { redirect: "manual" });
+      if (response.status < 500) return;
+    } catch {
+      // The server is still starting.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(`Next.js test server did not become ready:\n${serverOutput}`);
+}, { timeout: 35_000 });
+
+after(async () => {
+  if (!serverProcess || serverProcess.exitCode !== null) return;
+  serverProcess.kill("SIGTERM");
+  await Promise.race([
+    once(serverProcess, "exit"),
+    new Promise((resolve) => setTimeout(resolve, 3_000)),
+  ]);
+});
+
+async function render(pathname = "/", requestHeaders = {}) {
+  return fetch(`${serverOrigin}${pathname}`, {
+    headers: {
+      accept: "text/html",
+      "x-forwarded-host": "finality.watch",
+      "x-forwarded-proto": "https",
+      ...requestHeaders,
+    },
+    redirect: "manual",
+  });
 }
 
 test("server-renders the consolidation explorer", async () => {
@@ -239,8 +305,8 @@ test("server-renders the consolidation explorer", async () => {
     /Assumed guardrail for geographic fairness and reasonable node[\s\S]*?requirements—not a measured limit/,
   );
   assert.match(html, /Current 12-second slot[\s\S]*?0–4s[\s\S]*?4–8s[\s\S]*?8–12s/);
-  assert.match(html, /Local EIP snapshot[\s\S]*?2026-07-23/);
-  assert.match(html, /reviewed[\s\S]*?2026-08-19/);
+  assert.match(html, /Local EIP snapshot[\s\S]*?2026-08-28/);
+  assert.match(html, /reviewed[\s\S]*?2026-08-28/);
   assert.match(
     html,
     new RegExp(
@@ -252,7 +318,10 @@ test("server-renders the consolidation explorer", async () => {
     new RegExp(`Epoch ${snapshot.epoch.toLocaleString("en-US")}`),
   );
   assert.match(html, /beaconscan\.com/);
-  assert.match(html, /EIP-8061[\s\S]*?Review/);
+  assert.match(html, /EIP-8061[\s\S]*?Review[\s\S]*?Scheduled · Glamsterdam/);
+  assert.match(html, /EIP-8198[\s\S]*?Hegotá PFI · meta update pending/);
+  assert.match(html, /EIP-8243[\s\S]*?Hegotá · proposed for inclusion/);
+  assert.match(html, /EIP-8334[\s\S]*?Draft PR[\s\S]*?Hegotá PFI · meta update pending/);
   assert.match(html, /North star/);
   assert.match(html, /1-sec blocks · 2-sec protocol finality lag/);
   assert.match(html, /4× finality speedup/);
@@ -265,16 +334,27 @@ test("server-renders the consolidation explorer", async () => {
   assert.match(html, /justified today · stabilized in DC/);
   assert.doesNotMatch(html, />available<\/span>/);
   assert.match(html, /One visual step = one slot[\s\S]*?finality flips at 100%/);
-  assert.match(html, /Decoupled voting pattern/);
-  assert.match(html, /One validator set\. Eight slot cohorts\./);
-  assert.match(html, /class="dc-voting-pattern/);
-  assert.match(html, /full validator set/i);
-  assert.match(html, /AC: fresh sample across the full set/);
-  assert.match(html, /cohort assigned to this slot/);
+  assert.match(
+    html,
+    /id="proposal-dc"[\s\S]*?<\/details>[\s\S]*?href="#voting-pattern"[\s\S]*?id="voting-pattern"/,
+  );
+  const dcProposalStart = html.indexOf('id="proposal-dc"');
+  const dcProposalEnd = html.indexOf("</article>", dcProposalStart);
+  const votingPatternAnchor = html.indexOf('id="voting-pattern"');
+  assert.ok(dcProposalStart >= 0);
+  assert.ok(dcProposalEnd > dcProposalStart);
+  assert.ok(votingPatternAnchor > dcProposalStart);
+  assert.ok(votingPatternAnchor < dcProposalEnd);
+  assert.match(html, /Visualization/);
+  assert.doesNotMatch(html, /Decoupled voting pattern/);
+  assert.doesNotMatch(html, /One validator set\. Eight slot cohorts\./);
+  assert.doesNotMatch(html, /proposal-voting-disclosure/);
+  assert.doesNotMatch(html, /proposal-voting-panel/);
+  assert.doesNotMatch(html, /class="dc-voting-pattern/);
   assert.equal((html.match(/class="dc-pipeline(?:\s|")/g) ?? []).length, 3);
   assert.equal((html.match(/<small>finality votes<\/small>/g) ?? []).length, 3);
   assert.equal((html.match(/<small>justification<\/small>/g) ?? []).length, 2);
-  assert.equal((html.match(/>Pause animations<\/button>/g) ?? []).length, 2);
+  assert.equal((html.match(/>Pause animations<\/button>/g) ?? []).length, 1);
   assert.match(html, /16k scenario/);
   assert.doesNotMatch(html, /16\.0k scenario/);
   assert.doesNotMatch(html, /100k reference/);
@@ -331,23 +411,25 @@ test("removes the disposable starter and uses product metadata", async () => {
     packageJson,
     pipeline,
     styles,
-    worker,
+    nextConfig,
+    netlifyConfig,
+    readme,
     updater,
     snapshotText,
-    serverBundle,
   ] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../app/components/DcPipeline.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../netlify.toml", import.meta.url), "utf8"),
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
     readFile(
       new URL("../scripts/update-network-snapshot.mjs", import.meta.url),
       "utf8",
     ),
     readFile(new URL("../app/data/network-snapshot.json", import.meta.url), "utf8"),
-    readFile(new URL("../dist/server/index.js", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(page, /api\/network-summary/);
@@ -518,12 +600,20 @@ test("removes the disposable starter and uses product metadata", async () => {
   assert.match(layout, /\/og-wip\.png/);
   assert.match(packageJson, /"name": "finality-watch"/);
   assert.match(packageJson, /"snapshot:network"/);
+  assert.match(packageJson, /"dev": "next dev --webpack"/);
+  assert.match(packageJson, /"build": "next build --webpack"/);
+  assert.match(packageJson, /"start": "next start"/);
+  assert.doesNotMatch(packageJson, /vinext|wrangler|@cloudflare\/vite-plugin|@vitejs/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
-  assert.doesNotMatch(worker, /handleImageOptimization/);
-  assert.match(worker, /IMAGE_OPTIMIZATION_PATHS/);
-  assert.match(worker, /new Response\("Not Found", \{ status: 404 \}\)/);
-  assert.match(worker, /Content-Security-Policy/);
+  assert.match(nextConfig, /Content-Security-Policy/);
+  assert.match(nextConfig, /Netlify serves the native Next\.js build/);
+  assert.match(netlifyConfig, /command = "npm run build"/);
+  assert.match(netlifyConfig, /publish = "\.next"/);
+  assert.match(readme, /\[finality\.watch\]\(https:\/\/finality\.watch\)/);
+  assert.match(readme, /Production is hosted on Netlify/);
+  assert.doesNotMatch(readme, /chatgpt\.site|\.openai\/hosting\.json|canonical Sites project/);
+  assert.doesNotMatch(layout, /chatgpt\.site|SITES_ORIGIN|SITES_HOST/);
   assert.match(updater, /apikey: apiKey/);
   assert.doesNotMatch(updater, /searchParams\.set\(["']apikey/);
 
@@ -535,10 +625,15 @@ test("removes the disposable starter and uses product metadata", async () => {
   assert.ok(snapshot.epoch > 0);
   assert.ok(!Number.isNaN(Date.parse(snapshot.observedAt)));
   assert.equal(snapshot.source, "beaconscan.com");
-  assert.doesNotMatch(serverBundle, /\/Users\/|consolidate-watch/);
 
   await access(new URL("../public/og-wip.png", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview/", import.meta.url)));
+  await assert.rejects(access(new URL("../.openai/hosting.json", import.meta.url)));
+  await assert.rejects(access(new URL("../vite.config.ts", import.meta.url)));
+  await assert.rejects(access(new URL("../worker/index.ts", import.meta.url)));
+  await assert.rejects(
+    access(new URL("../build/sites-vite-plugin.ts", import.meta.url)),
+  );
   await assert.rejects(
     access(new URL("../app/api/network-summary/route.ts", import.meta.url)),
   );
@@ -560,7 +655,7 @@ test("adds security headers to server-rendered responses", async () => {
   assert.equal(response.headers.get("strict-transport-security"), "max-age=31536000");
 });
 
-test("rejects unrecognized forwarded hosts in social metadata", async () => {
+test("falls back to the canonical origin for unrecognized forwarded hosts", async () => {
   const response = await render("/", {
     "x-forwarded-host": "attacker.chatgpt.site",
   });
@@ -569,6 +664,6 @@ test("rejects unrecognized forwarded hosts in social metadata", async () => {
   assert.doesNotMatch(html, /attacker\.chatgpt\.site/);
   assert.match(
     html,
-    /https:\/\/finality-watch\.ethereum-fou-4225\.chatgpt\.site\/og-wip\.png/,
+    /https:\/\/finality\.watch\/og-wip\.png/,
   );
 });

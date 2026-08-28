@@ -2367,8 +2367,9 @@ footer > a:last-child:hover {
 }
 
 .proposal-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 172px minmax(0, 1fr) 152px 54px;
+  grid-template-columns: 172px minmax(0, 1fr) 152px 88px;
   gap: 24px;
   align-items: start;
   padding: 20px 4px;
@@ -2444,6 +2445,52 @@ footer > a:last-child:hover {
   color: var(--muted);
   font-size: 0.66rem;
   line-height: 1.5;
+}
+
+.proposal-voting-link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.proposal-voting-link:hover {
+  color: var(--leaf);
+  text-decoration-color: currentColor;
+}
+
+.proposal-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.proposal-voting-anchor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  scroll-margin-top: 24px;
+}
+
+.proposal-voting-panel {
+  grid-column: 1 / -1;
+  padding: 30px 24px 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px 4px 12px 4px;
+  background: var(--surface);
+}
+
+.proposal-voting-panel .voting-heading {
+  margin-bottom: 30px;
 }
 
 .proposal-meta span {
@@ -2721,8 +2768,14 @@ footer > a:last-child:hover {
     gap: 12px;
   }
 
-  .proposal-link {
+  .proposal-voting-panel {
+    padding: 24px 14px 18px;
+  }
+
+  .proposal-actions {
     grid-column: 1;
+    align-items: flex-start;
+    flex-direction: row;
   }
 
   .source-links {
@@ -3453,8 +3506,7 @@ footer > a:last-child:hover {
 
 /* finality.watch: data first */
 
-.model-first,
-.voting-section {
+.model-first {
   width: min(calc(100% - 48px), var(--max-width));
   margin-inline: auto;
 }
@@ -3594,10 +3646,6 @@ footer > a:last-child:hover {
 
 .lane-north-star .dc-pipeline-heartbeat {
   border-color: var(--clay);
-}
-
-.voting-section {
-  padding: 96px 0 104px;
 }
 
 .voting-heading {
@@ -6286,6 +6334,7 @@ footer > a:last-child:hover {
 }
 
 .motion-control-row-voting {
+  gap: 8px;
   margin-top: -18px;
 }
 

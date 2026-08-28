@@ -1,8 +1,8 @@
 import type { RoundImprovementId } from "./model.ts";
 
-export const PROPOSALS_LAST_CHECKED = "2026-08-19" as const;
+export const PROPOSALS_LAST_CHECKED = "2026-08-28" as const;
 export const PROPOSAL_LAST_CHECKED = PROPOSALS_LAST_CHECKED;
-export const LOCAL_EIP_SNAPSHOT = "2026-07-23";
+export const LOCAL_EIP_SNAPSHOT = "2026-08-28";
 
 export type ProposalId =
   | "eip-7251"
@@ -73,7 +73,7 @@ const PROPOSAL_SOURCES = [
     status: "review",
     statusLabel: "Review",
     plotRole: "timeline",
-    roadmapLabel: "Considered for Glamsterdam",
+    roadmapLabel: "Scheduled · Glamsterdam",
     summary:
       "Creates a separate consolidation churn limit and proposes roughly doubling consolidation throughput.",
     plotEffect:
@@ -92,7 +92,7 @@ const PROPOSAL_SOURCES = [
     status: "draft",
     statusLabel: "Draft",
     plotRole: "finality",
-    roadmapLabel: "Strawmap · J*",
+    roadmapLabel: "Hegotá PFI · meta update pending",
     summary:
       "Makes slot duration configurable and currently specifies an eight-second placeholder, down from twelve seconds.",
     plotEffect:
@@ -110,7 +110,7 @@ const PROPOSAL_SOURCES = [
     status: "draft",
     statusLabel: "Draft",
     plotRole: "curve",
-    roadmapLabel: "Related consensus networking work",
+    roadmapLabel: "Hegotá · proposed for inclusion",
     summary:
       "Lets validators scheduled in the same committee publish one pre-aggregated attestation instead of many individual messages.",
     plotEffect:
@@ -126,9 +126,9 @@ const PROPOSAL_SOURCES = [
     label: "Bundled Attestation Propagation",
     shortLabel: "2× bundled propagation",
     status: "draft",
-    statusLabel: "Draft · proposed for Hegotá",
+    statusLabel: "Draft PR",
     plotRole: "curve",
-    roadmapLabel: "Hegotá PFI",
+    roadmapLabel: "Hegotá PFI · meta update pending",
     summary:
       "Uses gossipsub partial messages to deduplicate attestation data during subnet propagation, with a stated upper-bound bandwidth saving of up to 50%.",
     plotEffect:

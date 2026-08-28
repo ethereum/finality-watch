@@ -1,6 +1,6 @@
 # finality.watch
 
-[finality.watch](https://finality-watch.ethereum-fou-4225.chatgpt.site) is an
+[finality.watch](https://finality.watch) is an
 interactive explorer for Ethereum's fast-finality design space. It models how
 validator consolidation, slot time, networking improvements, and finality
 gadgets change full-set round time and expected time to finality.
@@ -94,15 +94,10 @@ npm test
 
 ## Hosting
 
-The checked-in `.openai/hosting.json` identifies the canonical Sites project.
-Forks should configure their own hosting project rather than attempting to
-publish to that identifier. No deployment credential or runtime secret is
-stored in the repository.
-
-Netlify uses the separate native Next.js build configured in `netlify.toml`.
-This is intentional: the default `vinext` build emits a Cloudflare Worker in
-`dist`, while Netlify's Next.js runtime consumes the `.next` output produced by
-`npm run build:netlify`.
+Production is hosted on Netlify at [finality.watch](https://finality.watch).
+The checked-in `netlify.toml` runs the repository's standard `npm run build`
+command and deploys the native Next.js output. Netlify is the only deployment
+target.
 
 ## License
 

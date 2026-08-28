@@ -21,8 +21,8 @@ const REPORT_ONLY_CSP = [
   "upgrade-insecure-requests",
 ].join("; ");
 
-// The Sites build adds these in worker/index.ts. Native Next.js deployments
-// (including Netlify) bypass that Worker, so they must add them here instead.
+// Netlify serves the native Next.js build, so response security policy lives
+// in the framework configuration shared by local and production builds.
 const SECURITY_HEADERS = [
   { key: "Content-Security-Policy", value: ENFORCED_CSP },
   { key: "Content-Security-Policy-Report-Only", value: REPORT_ONLY_CSP },

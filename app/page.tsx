@@ -575,7 +575,31 @@ function MethodologySection() {
   );
 }
 
-function ProposalTrackerSection() {
+function ProposalTrackerSection({
+  animationsPaused,
+  onToggleAnimations,
+}: {
+  animationsPaused: boolean;
+  onToggleAnimations: () => void;
+}) {
+  const [votingPatternOpen, setVotingPatternOpen] = useState(false);
+
+  const revealVotingPattern = () => {
+    setVotingPatternOpen(true);
+  };
+
+  useEffect(() => {
+    const revealFromHash = () => {
+      if (window.location.hash === "#voting-pattern") {
+        setVotingPatternOpen(true);
+      }
+    };
+
+    revealFromHash();
+    window.addEventListener("hashchange", revealFromHash);
+    return () => window.removeEventListener("hashchange", revealFromHash);
+  }, []);
+
   return (
     <section
       className="pathways-section"
@@ -636,15 +660,75 @@ function ProposalTrackerSection() {
                 <small>{proposal.statusLabel}</small>
                 <small>{proposal.roadmap}</small>
               </div>
-              <a
-                className="proposal-link"
-                href={proposal.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`Read ${proposal.eip ?? proposal.title}`}
-              >
-                Source <ExternalArrow />
-              </a>
+              <div className="proposal-actions">
+                {proposal.id === "dc" ? (
+                  <a
+                    className="proposal-voting-link"
+                    href="#voting-pattern"
+                    onClick={revealVotingPattern}
+                  >
+                    Visualization <span aria-hidden="true">↓</span>
+                  </a>
+                ) : null}
+                <a
+                  className="proposal-link"
+                  href={proposal.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Read ${proposal.eip ?? proposal.title}`}
+                >
+                  Source <ExternalArrow />
+                </a>
+              </div>
+              {proposal.id === "dc" ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="proposal-voting-anchor"
+                    id="voting-pattern"
+                  />
+                  {votingPatternOpen ? (
+                    <div
+                      aria-labelledby="voting-pattern-title"
+                      className="proposal-voting-panel"
+                      role="region"
+                    >
+                      <div className="section-heading voting-heading">
+                        <div>
+                          <p className="section-kicker">Decoupled voting pattern</p>
+                          <h2 id="voting-pattern-title">
+                            One validator set. Eight slot cohorts.
+                          </h2>
+                        </div>
+                        <p>
+                          Each slot activates one cohort and samples a fresh AC
+                          committee from the full set.
+                        </p>
+                      </div>
+                      <div className="motion-control-row motion-control-row-voting">
+                        <button
+                          aria-pressed={animationsPaused}
+                          className="motion-control-button"
+                          onClick={onToggleAnimations}
+                          type="button"
+                        >
+                          {animationsPaused
+                            ? "Resume animations"
+                            : "Pause animations"}
+                        </button>
+                        <button
+                          className="motion-control-button"
+                          onClick={() => setVotingPatternOpen(false)}
+                          type="button"
+                        >
+                          Close visualization
+                        </button>
+                      </div>
+                      <DcVotingPattern paused={animationsPaused} />
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </article>
           );
         })}
@@ -1430,7 +1514,12 @@ export default function Home() {
       </section>
 
       <MethodologySection />
-      <ProposalTrackerSection />
+      <ProposalTrackerSection
+        animationsPaused={animationsPaused}
+        onToggleAnimations={() =>
+          setAnimationsPaused((current) => !current)
+        }
+      />
 
       <section
         className="decoupling-section"
@@ -1542,34 +1631,6 @@ export default function Home() {
           One visual step = one slot · finality flips at 100% · north star is
           illustrative.
         </p>
-      </section>
-
-      <section
-        className="voting-section"
-        id="voting-pattern"
-        aria-labelledby="voting-pattern-title"
-      >
-        <div className="section-heading voting-heading">
-          <div>
-            <p className="section-kicker">Decoupled voting pattern</p>
-            <h2 id="voting-pattern-title">One validator set. Eight slot cohorts.</h2>
-          </div>
-          <p>
-            Each slot activates one cohort and samples a fresh AC committee from
-            the full set.
-          </p>
-        </div>
-        <div className="motion-control-row motion-control-row-voting">
-          <button
-            aria-pressed={animationsPaused}
-            className="motion-control-button"
-            onClick={() => setAnimationsPaused((current) => !current)}
-            type="button"
-          >
-            {animationsPaused ? "Resume animations" : "Pause animations"}
-          </button>
-        </div>
-        <DcVotingPattern paused={animationsPaused} />
       </section>
 
       <footer>

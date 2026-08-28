@@ -13,8 +13,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITES_ORIGIN = "https://finality-watch.ethereum-fou-4225.chatgpt.site";
-const SITES_HOST = "finality-watch.ethereum-fou-4225.chatgpt.site";
 const CUSTOM_ORIGIN = "https://finality.watch";
 
 async function metadataBaseForRequest() {
@@ -29,15 +27,11 @@ async function metadataBaseForRequest() {
     return new URL(CUSTOM_ORIGIN);
   }
 
-  if (requestHost === SITES_HOST) {
-    return new URL(SITES_ORIGIN);
-  }
-
   if (requestHost?.startsWith("localhost:") || requestHost?.startsWith("127.0.0.1:")) {
     return new URL(`http://${requestHost}`);
   }
 
-  return new URL(SITES_ORIGIN);
+  return new URL(CUSTOM_ORIGIN);
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -73,7 +67,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: "/og-wip.png",
           width: 1734,
           height: 907,
-          alt: "finality.watch work-in-progress Ethereum finality explorer",
+          alt: "finality.watch Ethereum finality explorer with modeled round-time curves",
         },
       ],
     },
