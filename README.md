@@ -36,6 +36,54 @@ small set of adjustable assumptions. It is useful for comparisons and
 sensitivity checks, but it does not capture every implementation constraint,
 adversarial condition, or economic consideration.
 
+## Expert view
+
+The **Expert** toggle (or `?view=expert&protocol=…`) replaces the single DC
+switch with four consensus protocols and models decoupled consensus slot by
+slot. The model lives in `app/lib/protocols.ts`: each expectation averages
+every block a transaction can land in over one period of the protocol's
+schedule. It is tested in `tests/protocols.test.mjs` against an independent
+vote-by-vote simulation.
+
+Conventions, in slots, with every validator honest and online:
+
+- One finality-gadget cohort votes per slot, so a full-set round of `R` slots
+  (from the capacity model above) has `R` cohorts. Quorums count whole cohorts:
+  `J = ⌈2R/3⌉` to justify and `Q = ⌈5R/6⌉` for one-round finality.
+- A block is fast-confirmed one slot after its proposal, and the finality
+  gadget votes only confirmed blocks. Stabilization is shown one slot later and
+  does not gate finality.
+- Justification and height progress are on-chain: they take effect when the
+  next block includes the quorum's votes. Finality is observed locally as soon
+  as the last needed votes are cast.
+- As in DC's attestation rules, a finality pair must name a height below its
+  vote's height pair, and a target is never re-sent. A cohort whose confirmed
+  view still shows a closed height therefore carries no finality pair.
+- The coupled reference counts the round wait in whole slots: a block at a
+  round start is voted in that round.
+
+| Protocol | Rule | Two-round expectation (slots) |
+|---|---|---|
+| Coupled | Standard model above | `5R/2` |
+| DC today | Round-locked: every cohort of a round votes the height its opening view shows; one height per round, in rounds long enough for the quorum to be on-chain and confirmed before the next round opens | `5P/2 − 1`, `P = max(R, J + 1)` slots per round |
+| DC + height progress | A height closes at its quorum; cohorts switch once the new entry is confirmed, and the next height's votes finalize | `5H/2 − 1`, `H = J + 1` |
+| DC + Rolling FFG | Every slot is a checkpoint; justify with `J` votes, then finalize with `J` lock votes | `2J + ½` |
+
+With one-round finality, the coupled reference gives `3R/2`, and height-based
+designs close a height at `Q`: DC today
+gives `3P/2 − 1` with `P = max(R, Q + 1)`, and height progress gives `3H/2 − 1`
+with `H = Q + 1`. One-round Rolling FFG is open research and is not modeled. For long
+rounds the expectations approach 5/2, 5/3 and 4/3 rounds (3/2 and 5/4 with one
+round). A DC-today round has `R` slots of votes. When its quorum needs every
+one of them, the round runs one more slot, in which the block carrying the
+quorum is confirmed, so the next round can vote it. Rounds therefore last at
+least two slots, and finality never gets slower with fewer validators.
+
+The timeline also shows the votes that arrive after finality is already seen:
+DC today's cohorts all vote from the round's opening view, so the rest of the
+round repeats the finality vote, and Rolling FFG collects a full round of lock
+votes. They change no expected value.
+
 ## Feedback
 
 [GitHub Issues](https://github.com/ethereum/finality-watch/issues/new/choose) are

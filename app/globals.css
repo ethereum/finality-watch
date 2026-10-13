@@ -6385,3 +6385,863 @@ footer > a:last-child:hover {
     gap: 9px;
   }
 }
+
+/* Expert view: chart heading, scale toggle and the finality chart, which is
+   sized to its container. */
+.chart-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 24px 0 4px;
+}
+.chart-heading h2 { margin: 0; color: var(--foreground); font-size: .88rem; font-weight: 650; }
+.chart-heading p { margin: 5px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.5; }
+.chart-scale-options { display: flex; flex-shrink: 0; padding: 3px; border: 1px solid var(--line); border-radius: 10px; }
+.chart-scale-options button { min-height: 40px; min-width: 52px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; font-size: .75rem; }
+.chart-scale-options button[aria-pressed="true"] { background: var(--surface-mint); color: var(--leaf); font-weight: 700; }
+.chart-axis-caption { margin: -12px 0 18px; color: var(--muted); text-align: center; font-size: .75rem; }
+.timing-assumption { margin: 18px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.6; }
+.finality-time-chart text { font-size: 12px; }
+.finality-time-chart .selected-label,
+.finality-time-chart .current-label,
+.finality-time-chart .target-label { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+
+@media (max-width: 680px) {
+  .chart-heading { align-items: flex-start; flex-direction: column; gap: 10px; margin-top: 22px; }
+  .chart-scale-options { align-self: flex-end; }
+  .chart-scale-options button { min-height: 44px; }
+  /* The standard chart hides its text on phones; the finality chart fits. */
+  .finality-time-chart text { display: block; font-size: 11px; }
+  .finality-time-chart .x-tick line { display: block; }
+}
+
+/* Expert view: protocol comparison, slot-accurate timing and one transaction's journey. */
+:root {
+  --protocol-coupled: var(--muted);
+  --protocol-dc-today: var(--leaf);
+  --protocol-height-progress: var(--clay);
+  --protocol-rolling-ffg: #94650f;
+  --stage-confirmed-fill: #dfe7e9;
+  --stage-stabilized-fill: #c3d7d6;
+  --stage-justified-fill: #c4d2b8;
+  --stage-justified-line: #6f8b63;
+}
+
+.protocol-coupled { --protocol-color: var(--protocol-coupled); }
+.protocol-dc-today { --protocol-color: var(--protocol-dc-today); }
+.protocol-height-progress { --protocol-color: var(--protocol-height-progress); }
+.protocol-rolling-ffg { --protocol-color: var(--protocol-rolling-ffg); }
+
+.view-mode-toggle {
+  display: inline-flex;
+  margin-top: 14px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.view-mode-toggle button {
+  min-height: 36px;
+  min-width: 84px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 620;
+}
+
+.view-mode-toggle button[aria-pressed="true"] {
+  background: var(--surface-mint);
+  color: var(--leaf);
+  font-weight: 720;
+}
+
+.model-primary-results .confirmation-result > span {
+  color: var(--teal);
+}
+
+.model-primary-results .finality-result small {
+  display: block;
+  margin-top: 6px;
+}
+
+.model-primary-results .research-needed {
+  font-size: clamp(1rem, 8cqi, 1.7rem);
+  font-weight: 620;
+  line-height: 1.1;
+}
+
+.improvement-toolbar.is-expert {
+  row-gap: 18px;
+}
+
+/* The protocol picker carries DC, so two networking cards remain. Phones keep
+   their one-column layout. */
+@media (min-width: 681px) {
+  .improvement-toolbar.is-expert .improvement-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.protocol-readouts + .protocol-readout-note {
+  margin-top: 10px;
+}
+
+.expert-protocols {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.expert-protocols .control-heading span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 680;
+}
+
+.expert-protocol-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.expert-protocol-option {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.expert-protocol-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.expert-protocol-card {
+  display: grid;
+  grid-template-columns: 21px minmax(0, 1fr);
+  gap: 3px 8px;
+  height: 100%;
+  min-height: 92px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px 5px 12px 5px;
+  color: var(--muted);
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.expert-protocol-option:hover .expert-protocol-card {
+  border-color: var(--sage);
+  background: var(--surface);
+}
+
+.expert-protocol-option input:checked + .expert-protocol-card {
+  border-color: var(--protocol-color);
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--protocol-color);
+}
+
+.expert-protocol-option input:focus-visible + .expert-protocol-card {
+  outline: 3px solid var(--indigo);
+  outline-offset: 3px;
+}
+
+.expert-protocol-card > i {
+  align-self: center;
+  width: 21px;
+  height: 0;
+  border-top: 3px solid var(--protocol-color);
+}
+
+.protocol-coupled .expert-protocol-card > i,
+.protocol-readout.protocol-coupled > i {
+  border-top-style: dashed;
+}
+
+.protocol-height-progress .expert-protocol-card > i,
+.protocol-readout.protocol-height-progress > i {
+  border-top-style: dashed;
+}
+
+.expert-protocol-card strong {
+  color: var(--foreground);
+  font-size: 0.74rem;
+  font-weight: 680;
+}
+
+.expert-protocol-card small,
+.expert-protocol-card b,
+.expert-protocol-card em {
+  grid-column: 1 / -1;
+}
+
+.expert-protocol-card small {
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.expert-protocol-card b {
+  margin-top: 4px;
+  color: var(--protocol-color);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.expert-protocol-card em {
+  color: var(--muted-soft);
+  font-size: 0.6rem;
+  font-style: normal;
+}
+
+.chart-heading-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.finality-time-chart .confirmation-guide {
+  stroke: var(--teal);
+  stroke-dasharray: 3 5;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+.finality-time-chart .confirmation-label {
+  fill: var(--teal);
+  font-weight: 650;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-linejoin: round;
+  stroke-width: 3px;
+}
+
+.protocol-curve .protocol-line {
+  fill: none;
+  stroke: var(--protocol-color);
+  stroke-linejoin: round;
+  stroke-width: 2;
+  opacity: 0.62;
+  vector-effect: non-scaling-stroke;
+}
+
+.protocol-curve.protocol-coupled .protocol-line {
+  stroke-dasharray: 5 4;
+}
+
+.protocol-curve.protocol-height-progress .protocol-line {
+  stroke-dasharray: 9 4;
+}
+
+.protocol-curve.is-selected .protocol-line {
+  stroke-width: 3.2;
+  opacity: 1;
+}
+
+.protocol-curve circle {
+  fill: var(--surface);
+  stroke: var(--protocol-color);
+  stroke-width: 2;
+}
+
+.protocol-curve.is-selected circle {
+  fill: var(--protocol-color);
+}
+
+.protocol-readout > i {
+  border-color: var(--protocol-color);
+  border-top-style: solid;
+}
+
+.protocol-readout b {
+  color: var(--protocol-color);
+}
+
+.protocol-readout.is-finality-input {
+  box-shadow: inset 3px 0 0 var(--protocol-color);
+}
+
+.protocol-readout > em {
+  white-space: normal;
+}
+
+.protocol-readout-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+/* Expert timing breakdown */
+.expert-timing-track {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 38px;
+}
+
+.expert-timing-stage {
+  position: relative;
+  display: flex;
+  flex-basis: 0;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 96px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px 4px 12px 4px;
+}
+
+.expert-timing-stage.is-inclusion { background: rgba(146, 80, 68, 0.12); }
+.expert-timing-stage.is-confirmation { background: rgba(54, 111, 121, 0.14); }
+.expert-timing-stage.is-wait { background: rgba(146, 80, 68, 0.05); border-style: dashed; }
+.expert-timing-stage.is-justification { background: #e5ecdc; }
+.expert-timing-stage.is-finalization { background: rgba(36, 70, 53, 0.14); }
+.expert-timing-stage.is-zero { min-width: 86px; opacity: 0.72; }
+
+.expert-timing-stage b {
+  color: var(--foreground);
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.expert-timing-stage strong {
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.expert-timing-stage small {
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.expert-timing-milestone {
+  position: absolute;
+  top: -24px;
+  left: -1px;
+  color: var(--muted);
+  font-size: 0.56rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.expert-timing-milestone::after,
+.expert-timing-finish::after {
+  position: absolute;
+  bottom: -9px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--clay);
+  box-shadow: 0 0 0 1px var(--clay);
+  content: "";
+}
+
+.expert-timing-stage.is-wait .expert-timing-milestone::after,
+.expert-timing-stage.is-justification .expert-timing-milestone::after { background: var(--teal); box-shadow: 0 0 0 1px var(--teal); }
+.expert-timing-stage.is-finalization .expert-timing-milestone::after { background: var(--leaf); box-shadow: 0 0 0 1px var(--leaf); }
+
+.expert-timing-finish {
+  position: relative;
+  top: -24px;
+  flex: 0 0 52px;
+  align-self: flex-start;
+  margin-left: -6px;
+  color: var(--leaf);
+  font-size: 0.56rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.expert-timing-finish::after {
+  background: var(--indigo-dark);
+  box-shadow: 0 0 0 1px var(--indigo-dark);
+}
+
+.expert-timing-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.expert-timing-facts > div {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px 4px 10px 4px;
+  background: var(--surface);
+}
+
+.expert-timing-facts span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 650;
+}
+
+.expert-timing-facts strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.expert-assumptions {
+  margin-top: 14px;
+}
+
+.expert-assumptions ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+/* One transaction's journey */
+.journey-section {
+  padding: 22px 28px 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(252, 249, 242, 0.7);
+}
+
+.journey-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.journey-heading > div > span {
+  display: block;
+  color: var(--teal);
+  font-size: 0.61rem;
+  font-weight: 720;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.journey-heading h2 {
+  margin: 5px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.journey-heading p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.journey-controls {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.journey-step-button[aria-disabled="true"],
+.journey-step-button[aria-disabled="true"]:hover {
+  border-color: var(--line);
+  color: var(--muted-soft);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.journey {
+  margin-top: 18px;
+}
+
+.journey-lane {
+  position: relative;
+  height: 104px;
+  container-type: inline-size;
+  --journey-size: min(16px, calc(100cqi / var(--journey-columns) * 0.66));
+}
+
+.journey-rail {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--line-strong);
+}
+
+.journey-boundary {
+  position: absolute;
+  top: 28px;
+  bottom: 18px;
+  width: 0;
+  border-left: 1px dashed var(--line-strong);
+  transition: left var(--journey-step) linear;
+}
+
+.journey-round-bracket {
+  position: absolute;
+  top: 6px;
+  height: 14px;
+  border: 1.5px solid var(--leaf);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  transition: left var(--journey-step) linear;
+}
+
+/* The bracket marks the latest full round, near the head, so its label is
+   anchored at the bracket's right end to stay inside the lane. */
+.journey-round-bracket span {
+  position: absolute;
+  top: -15px;
+  right: 0;
+  color: var(--leaf);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.58rem;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.journey-block,
+.journey-next {
+  position: absolute;
+  top: 51px;
+  left: var(--journey-x);
+  width: var(--journey-size);
+  height: clamp(6px, var(--journey-size), 16px);
+  transform: translate(-50%, -50%);
+  transition: left var(--journey-step) linear;
+}
+
+.journey-block-face {
+  position: absolute;
+  inset: 0;
+  border-radius: min(3px, calc(var(--journey-size) / 4));
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  transition: background-color 240ms ease, box-shadow 240ms ease;
+}
+
+.journey-block.is-confirmed .journey-block-face {
+  background: var(--stage-confirmed-fill);
+  box-shadow: inset 0 0 0 1.5px var(--teal);
+}
+
+.journey-block.is-stabilized .journey-block-face {
+  background: var(--stage-stabilized-fill);
+  box-shadow: inset 0 0 0 1.5px var(--teal);
+}
+
+.journey-block.is-justified .journey-block-face {
+  background: var(--stage-justified-fill);
+  box-shadow: inset 0 0 0 1.5px var(--stage-justified-line);
+}
+
+.journey-block.is-finalized .journey-block-face {
+  background: var(--indigo-dark);
+  box-shadow: inset 0 0 0 1.5px var(--indigo-dark);
+}
+
+.journey-block.is-tracked .journey-block-face {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+}
+
+.journey-target {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: clamp(4px, calc(var(--journey-size) * 0.45), 7px);
+  height: clamp(4px, calc(var(--journey-size) * 0.45), 7px);
+  border-radius: 1px;
+  background: var(--clay);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.journey-tx-tag {
+  position: absolute;
+  bottom: calc(100% + 13px);
+  left: 50%;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: #fffaf4;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.56rem;
+  font-weight: 700;
+  transform: translateX(-50%);
+}
+
+.journey-next {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 3px;
+}
+
+.journey-next.is-arriving {
+  border-color: var(--clay);
+}
+
+.journey-vote {
+  position: absolute;
+  top: 74px;
+  left: var(--journey-x);
+  width: max(2px, calc(var(--journey-size) * 0.55));
+  height: 10px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  transform: translateX(-50%);
+  transition: left var(--journey-step) linear, background-color 200ms ease;
+}
+
+.journey-vote.is-stale {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* A stretched DC-today round has slots in which no cohort votes. */
+.journey-vote.is-idle {
+  top: 82px;
+  height: 2px;
+  background: var(--line);
+}
+
+.journey-vote.is-quorum {
+  background: var(--stage-justified-line);
+}
+
+.journey-vote.is-finality {
+  background: var(--indigo-dark);
+}
+
+/* The rest of a round still sends the finality vote after finality is seen. */
+.journey-vote.is-quorum-later {
+  background: color-mix(in srgb, var(--stage-justified-line) 35%, transparent);
+  box-shadow: inset 0 0 0 1px var(--stage-justified-line);
+}
+
+.journey-vote.is-finality-later {
+  background: color-mix(in srgb, var(--indigo-dark) 30%, transparent);
+  box-shadow: inset 0 0 0 1px var(--indigo-dark);
+}
+
+.journey-status {
+  min-height: 1.6em;
+  margin: 6px 0 0;
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 560;
+}
+
+.journey-clock {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--paper-deep);
+  color: var(--muted);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.journey-track {
+  position: relative;
+  height: 8px;
+  margin: 18px 6px 0;
+  border-radius: 999px;
+  background: var(--paper-deep);
+}
+
+.journey-track-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--journey-width);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--clay), var(--teal) 30%, var(--leaf));
+}
+
+.journey-track-dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--line-strong);
+  transform: translate(-50%, -50%);
+}
+
+.journey-track-dot.is-reached { background: var(--teal); }
+.journey-track-dot.is-reached.is-arrival,
+.journey-track-dot.is-reached.is-included { background: var(--clay); }
+.journey-track-dot.is-reached.is-justified { background: var(--stage-justified-line); }
+.journey-track-dot.is-reached.is-finalized { background: var(--indigo-dark); }
+.journey-track-dot.is-reached.is-last-vote { background: color-mix(in srgb, var(--indigo-dark) 45%, var(--surface)); }
+
+.journey-milestones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.journey-milestones li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px 3px 8px 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  opacity: 0.6;
+  transition: opacity 200ms ease, border-color 200ms ease;
+}
+
+.journey-milestones li.is-reached {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--foreground);
+  opacity: 1;
+}
+
+.journey-milestones strong {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.journey-milestones li.is-finalized.is-reached strong {
+  color: var(--leaf);
+}
+
+.journey-playback {
+  margin: 12px 0 0;
+  color: var(--muted-soft);
+  font-size: 0.66rem;
+}
+
+.journey-research {
+  margin: 18px 0 0;
+  padding: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px 4px 12px 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.journey-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.journey-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.journey-key i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+
+.journey-key .is-confirmed { background: var(--stage-confirmed-fill); box-shadow: inset 0 0 0 1.5px var(--teal); }
+.journey-key .is-stabilized { background: var(--stage-stabilized-fill); box-shadow: inset 0 0 0 1.5px var(--teal); }
+.journey-key .is-justified { background: var(--stage-justified-fill); box-shadow: inset 0 0 0 1.5px var(--stage-justified-line); }
+.journey-key .is-finalized { background: var(--indigo-dark); box-shadow: none; }
+.journey-key .is-target { width: 7px; height: 7px; border-radius: 1px; background: var(--clay); box-shadow: none; transform: rotate(45deg); }
+.journey-key .is-quorum-vote { width: 5px; background: var(--stage-justified-line); box-shadow: none; }
+.journey-key .is-finality-vote { width: 5px; background: var(--indigo-dark); box-shadow: none; }
+.journey-key .is-quorum-later-vote { width: 5px; background: color-mix(in srgb, var(--stage-justified-line) 35%, transparent); box-shadow: inset 0 0 0 1px var(--stage-justified-line); }
+.journey-key .is-finality-later-vote { width: 5px; background: color-mix(in srgb, var(--indigo-dark) 30%, transparent); box-shadow: inset 0 0 0 1px var(--indigo-dark); }
+.journey-key .is-idle-vote { width: 8px; height: 2px; border-radius: 0; background: var(--line-strong); box-shadow: none; }
+.journey-key .is-stale-vote { width: 5px; background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-block,
+  .journey-next,
+  .journey-vote,
+  .journey-boundary,
+  .journey-round-bracket {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .expert-protocol-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .expert-timing-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .view-mode-toggle { margin-top: 10px; }
+  .view-mode-toggle button { min-height: 44px; }
+  .expert-protocol-card { min-height: 0; padding: 10px; }
+  .expert-protocol-card small { display: none; }
+  .chart-heading-controls { align-self: stretch; justify-content: space-between; }
+  .journey-section { padding: 18px 16px 20px; }
+  .journey-heading { flex-direction: column; }
+  .journey-lane { height: 96px; }
+  .expert-timing-track { flex-direction: column; margin-top: 12px; gap: 22px; }
+  .expert-timing-stage { min-width: 0; flex-grow: 1 !important; }
+  .expert-timing-milestone { top: -18px; }
+  .expert-timing-finish { top: 0; margin-left: 0; }
+}
+
+/* Selected expert controls stay visible in forced colors, as the round options do. */
+@media (forced-colors: active) {
+  .expert-protocol-option input:checked + .expert-protocol-card,
+  .view-mode-toggle button[aria-pressed="true"] {
+    border: 2px solid Highlight;
+    outline: none;
+  }
+
+  .expert-protocol-option input:focus-visible + .expert-protocol-card {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .chart-scale-options button[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

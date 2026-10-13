@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MAX_ASSIGNED_ATTESTERS_PER_SLOT,
   MIN_SCENARIO_VALIDATORS,
@@ -19,6 +19,21 @@ import {
 } from "./lib/model";
 import { DcPipeline } from "./components/DcPipeline";
 import { DcVotingPattern } from "./components/DcVotingPattern";
+import { ExpertTimingDiagram } from "./components/ExpertTimingDiagram";
+import {
+  FinalityTimeChart,
+  protocolTimingAt,
+  roundedSeconds,
+} from "./components/FinalityTimeChart";
+import { TransactionJourney } from "./components/TransactionJourney";
+import {
+  CONSENSUS_PROTOCOLS,
+  PROTOCOL_BY_ID,
+  improvementsForProtocol,
+  type ConsensusProtocol,
+  type ConsensusProtocolId,
+  type ProtocolTiming,
+} from "./lib/protocols";
 import {
   DEFAULT_ROUND_IMPROVEMENTS,
   LOCAL_EIP_SNAPSHOT,
@@ -402,6 +417,86 @@ function FinalityTimingDiagram({ timing }: { timing: FinalityTiming }) {
   );
 }
 
+type ProtocolOption = {
+  protocol: ConsensusProtocol;
+  timing: ProtocolTiming;
+};
+
+function protocolValue(timing: ProtocolTiming) {
+  if (!timing.available) return "Research needed";
+  return `≈${formatDuration(roundedSeconds(timing.totalSeconds))}`;
+}
+
+// DC today's round can run past its vote slots so its quorum lands in time.
+function roundDescription(timing: ProtocolTiming) {
+  const length = timing.roundLengthSlots;
+  const slots = `${length} ${length === 1 ? "slot" : "slots"}`;
+  return length > timing.roundSlots ? `${slots}, ${timing.roundSlots} voting` : slots;
+}
+
+function protocolReadoutDetail(timing: ProtocolTiming) {
+  if (!timing.available) return "One-round Rolling FFG is open research";
+  const cadence =
+    timing.protocol === "dc-rolling-ffg"
+      ? "a checkpoint every slot"
+      : timing.protocol === "coupled"
+        ? "a checkpoint every round"
+        : `a target every ${timing.targetIntervalSlots} slots`;
+  const range = `${formatDuration(roundedSeconds(timing.minSeconds))}–${formatDuration(roundedSeconds(timing.maxSeconds))}`;
+  return `${roundDescription(timing)} × ${timing.slotSeconds} sec · ${cadence} · range ${range}`;
+}
+
+function protocolNote(timing: ProtocolTiming) {
+  if (!timing.available) return "One-round Rolling FFG is open research";
+  return `${roundDescription(timing)} per round`;
+}
+
+function ProtocolPicker({
+  finalityRounds,
+  onSelect,
+  options,
+  selected,
+}: {
+  finalityRounds: 1 | 2;
+  onSelect: (protocol: ConsensusProtocolId) => void;
+  options: readonly ProtocolOption[];
+  selected: ConsensusProtocolId;
+}) {
+  return (
+    <fieldset className="improvement-group expert-protocols">
+      <legend className="sr-only">Consensus protocol</legend>
+      <div className="control-heading">
+        <span aria-hidden="true">
+          Consensus protocol · expected finality with{" "}
+          {finalityRounds === 1 ? "one-round" : "two-round"} finality
+        </span>
+      </div>
+      <div className="expert-protocol-options">
+        {options.map(({ protocol, timing }) => (
+          <label
+            className={`expert-protocol-option ${protocol.strokeClass}`}
+            key={protocol.id}
+          >
+            <input
+              checked={selected === protocol.id}
+              name="consensus-protocol"
+              onChange={() => onSelect(protocol.id)}
+              type="radio"
+              value={protocol.id}
+            />
+            <span className="expert-protocol-card">
+              <i aria-hidden="true" />
+              <strong>{protocol.shortLabel}</strong>
+              <small>{protocol.summary}</small>
+              <b>{protocolValue(timing)}</b>
+              <em>{protocolNote(timing)}</em>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 function MethodologySection() {
   return (
     <section
@@ -748,6 +843,37 @@ export default function Home() {
   const [slotSeconds, setSlotSeconds] = useState(SLOT_SECONDS);
   const [oneRoundFinality, setOneRoundFinality] = useState(false);
   const [animationsPaused, setAnimationsPaused] = useState(false);
+  const [expertMode, setExpertMode] = useState(false);
+  const [journeyPaused, setJourneyPaused] = useState(false);
+  const [protocol, setProtocol] = useState<ConsensusProtocolId>("dc-today");
+  const [chartMetric, setChartMetric] = useState<"finality" | "round">("finality");
+  const [chartScale, setChartScale] = useState<"linear" | "log">("log");
+  const [chartWidth, setChartWidth] = useState(920);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  // ?view=expert&protocol=… opens the expert view directly.
+  useEffect(() => {
+    const applyLocation = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") !== "expert") return;
+      const requested = params.get("protocol") as ConsensusProtocolId | null;
+      if (requested && PROTOCOL_BY_ID.has(requested)) setProtocol(requested);
+      setExpertMode(true);
+    };
+
+    applyLocation();
+  }, []);
+
+  // The expert finality chart is drawn at the width of its container.
+  useEffect(() => {
+    const element = chartRef.current;
+    if (!expertMode || !element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setChartWidth(Math.max(240, Math.round(entry.contentRect.width)));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [expertMode]);
 
   useEffect(() => {
     if (!openControlHelpId) return;
@@ -767,16 +893,84 @@ export default function Home() {
     };
   }, [openControlHelpId]);
 
+  // In the expert view the protocol picker decides whether the DC gain applies.
+  const finalityRounds: 1 | 2 = oneRoundFinality ? 1 : 2;
+  const networkingImprovementIds = enabledImprovementIds.filter(
+    (improvementId) => improvementId !== "dc",
+  );
+  const modelImprovementIds = expertMode
+    ? improvementsForProtocol(protocol, enabledImprovementIds)
+    : enabledImprovementIds;
+  const modelImprovementKey = modelImprovementIds.join("+");
   const model = useMemo(
     () =>
       calculateRoundModel({
         validators: scenarioValidators,
         slotSeconds,
-        enabledImprovements: enabledImprovementIds,
+        enabledImprovements: modelImprovementKey
+          ? (modelImprovementKey.split("+") as RoundImprovementId[])
+          : [],
         finalityRounds: oneRoundFinality ? 1 : 2,
       }),
-    [enabledImprovementIds, oneRoundFinality, scenarioValidators, slotSeconds],
+    [modelImprovementKey, oneRoundFinality, scenarioValidators, slotSeconds],
   );
+  const protocolOptions: ProtocolOption[] = CONSENSUS_PROTOCOLS.map(
+    (candidate) => ({
+      protocol: candidate,
+      timing: protocolTimingAt({
+        protocol: candidate.id,
+        validators: model.validators,
+        slotSeconds: model.slotSeconds,
+        finalityRounds,
+        networkingImprovements: networkingImprovementIds,
+      }).timing,
+    }),
+  );
+  const protocolTiming =
+    protocolOptions.find((option) => option.protocol.id === protocol)?.timing ??
+    protocolOptions[0].timing;
+  const selectedProtocol = PROTOCOL_BY_ID.get(protocol) ?? CONSENSUS_PROTOCOLS[0];
+  const showFinalityChart = expertMode && chartMetric === "finality";
+
+  const syncExpertLocation = (
+    nextExpertMode: boolean,
+    nextProtocol: ConsensusProtocolId,
+  ) => {
+    const url = new URL(window.location.href);
+    if (nextExpertMode) {
+      url.searchParams.set("view", "expert");
+      url.searchParams.set("protocol", nextProtocol);
+    } else {
+      url.searchParams.delete("view");
+      url.searchParams.delete("protocol");
+    }
+    window.history.replaceState(null, "", url);
+  };
+  const changeView = (nextExpertMode: boolean) => {
+    if (nextExpertMode === expertMode) return;
+    if (nextExpertMode) {
+      // Carry the standard view's DC toggle into the protocol picker.
+      const nextProtocol = enabledImprovementIds.includes("dc")
+        ? protocol === "coupled"
+          ? "dc-today"
+          : protocol
+        : "coupled";
+      setProtocol(nextProtocol);
+      syncExpertLocation(true, nextProtocol);
+      // The expert view has no DC card, so its note would lose its trigger.
+      setOpenControlHelpId((current) =>
+        current === "improvement-dc" ? null : current,
+      );
+    } else {
+      syncExpertLocation(false, protocol);
+    }
+    setExpertMode(nextExpertMode);
+    setChartMetric("finality");
+  };
+  const selectProtocol = (nextProtocol: ConsensusProtocolId) => {
+    setProtocol(nextProtocol);
+    syncExpertLocation(true, nextProtocol);
+  };
 
   const presets = [
     { label: "Snapshot", shortLabel: "Snapshot", value: network.activeValidators },
@@ -848,8 +1042,29 @@ export default function Home() {
         validators >= MIN_SCENARIO_VALIDATORS,
     )
     .sort((a, b) => b - a);
+  // The expert finality chart is sized to its container; the standard chart
+  // keeps its fixed geometry.
+  const expertChart = {
+    width: chartWidth,
+    height: chartWidth < 600 ? 300 : 360,
+    left: 58,
+    right: 18,
+    top: 36,
+    bottom: 42,
+  };
+  const expertXFor = (validators: number) =>
+    expertChart.left +
+    (reductionFor(validators) / Math.max(maximumReduction, 0.001)) *
+      (expertChart.width - expertChart.left - expertChart.right);
+  const expertMaximumX = expertXFor(MIN_SCENARIO_VALIDATORS);
+  const expertValidatorTicks = validatorTicks.filter((validators, index, ticks) => {
+    if (index === 0 || index === ticks.length - 1) return true;
+    const x = expertXFor(validators);
+    // Keep endpoint labels and omit intermediate labels that would collide.
+    return x - expertXFor(ticks[index - 1]) >= 58 && expertMaximumX - x >= 58;
+  });
   const enabledImprovements = ROUND_IMPROVEMENTS.filter((improvement) =>
-    enabledImprovementIds.includes(improvement.id),
+    modelImprovementIds.includes(improvement.id),
   );
   const curveStages = enabledImprovements.map((improvement, index) => {
     const improvements = enabledImprovements
@@ -1054,6 +1269,26 @@ export default function Home() {
           <div>
             <p className="section-kicker">Ethereum consensus model</p>
             <h1 id="model-title">Finality explorer</h1>
+            <div
+              aria-label="Explorer view"
+              className="view-mode-toggle"
+              role="group"
+            >
+              <button
+                aria-pressed={!expertMode}
+                onClick={() => changeView(false)}
+                type="button"
+              >
+                Standard
+              </button>
+              <button
+                aria-pressed={expertMode}
+                onClick={() => changeView(true)}
+                type="button"
+              >
+                Expert
+              </button>
+            </div>
           </div>
           <aside className="model-network" aria-label="Ethereum validator identity count">
           <div
@@ -1081,30 +1316,89 @@ export default function Home() {
                 <span>Validator identities</span>
                 <strong>{formatCompactCount(model.validators)}</strong>
               </div>
-              <div className="slots-result">
-                <span>Slots / round</span>
-                <strong>{model.roundSlots}</strong>
-                <small>
-                  whole {slotSeconds}-second {model.roundSlots === 1 ? "slot" : "slots"}
-                </small>
-              </div>
-              <div className="round-result">
-                <span>Full-set round</span>
-                <strong>
-                  <Approximate value={formatDuration(model.roundSeconds)} />
-                </strong>
-                <small>
-                  {model.roundSlots} {model.roundSlots === 1 ? "slot" : "slots"} × {slotSeconds} sec
-                  {model.floorLimited
-                    ? ` · ${DECENTRALIZATION_FLOOR_SECONDS}-sec decentralization floor active`
-                    : ""}
-                </small>
-              </div>
+              {expertMode ? (
+                <>
+                  <div className="round-result">
+                    <span>Full-set round</span>
+                    <strong>
+                      <Approximate value={formatDuration(model.roundSeconds)} />
+                    </strong>
+                    <small>
+                      {model.roundSlots} {model.roundSlots === 1 ? "slot" : "slots"} × {slotSeconds} sec
+                      {protocolTiming.roundLengthSlots > protocolTiming.roundSlots
+                        ? ` · DC today rounds run ${protocolTiming.roundLengthSlots} slots`
+                        : model.floorLimited
+                          ? ` · ${DECENTRALIZATION_FLOOR_SECONDS}-sec floor`
+                          : ""}
+                    </small>
+                  </div>
+                  <div className="confirmation-result">
+                    <span>Expected fast confirmation</span>
+                    <strong>
+                      {protocolTiming.confirmationSeconds === null ? (
+                        "None"
+                      ) : (
+                        <Approximate
+                          value={formatDuration(protocolTiming.confirmationSeconds)}
+                        />
+                      )}
+                    </strong>
+                    <small>
+                      {protocolTiming.confirmationSeconds === null
+                        ? "The coupled model has no fast-confirmation step"
+                        : "½ slot to inclusion + 1 slot to confirm"}
+                    </small>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="slots-result">
+                    <span>Slots / round</span>
+                    <strong>{model.roundSlots}</strong>
+                    <small>
+                      whole {slotSeconds}-second {model.roundSlots === 1 ? "slot" : "slots"}
+                    </small>
+                  </div>
+                  <div className="round-result">
+                    <span>Full-set round</span>
+                    <strong>
+                      <Approximate value={formatDuration(model.roundSeconds)} />
+                    </strong>
+                    <small>
+                      {model.roundSlots} {model.roundSlots === 1 ? "slot" : "slots"} × {slotSeconds} sec
+                      {model.floorLimited
+                        ? ` · ${DECENTRALIZATION_FLOOR_SECONDS}-sec decentralization floor active`
+                        : ""}
+                    </small>
+                  </div>
+                </>
+              )}
               <div className="finality-result">
-                <span>Modeled expected finality</span>
+                <span>
+                  {expertMode
+                    ? `Expected finality · ${selectedProtocol.shortLabel}`
+                    : "Modeled expected finality"}
+                </span>
                 <strong>
-                  <Approximate value={formatDuration(finalityTiming.totalSeconds)} />
+                  {expertMode && !protocolTiming.available ? (
+                    <span className="research-needed">Research needed</span>
+                  ) : (
+                    <Approximate
+                      value={formatDuration(
+                        expertMode
+                          ? roundedSeconds(protocolTiming.totalSeconds)
+                          : finalityTiming.totalSeconds,
+                      )}
+                    />
+                  )}
                 </strong>
+                {expertMode ? (
+                  <small>
+                    {!protocolTiming.available
+                      ? "One-round Rolling FFG is open research"
+                      : `Range ${formatDuration(roundedSeconds(protocolTiming.minSeconds))}–${formatDuration(roundedSeconds(protocolTiming.maxSeconds))} by arrival time`}
+                  </small>
+                ) : null}
                 <button
                   aria-controls="expected-finality-breakdown"
                   aria-expanded={showFinalityExplainer}
@@ -1149,6 +1443,7 @@ export default function Home() {
               {formatGain(model.gains.total)} stacked networking gain ·{" "}
               {slotSeconds}-second slots · {oneRoundFinality ? "one" : "two"}{" "}
               finality {oneRoundFinality ? "round" : "rounds"}
+              {expertMode ? ` · ${selectedProtocol.label}` : ""}
             </p>
           </div>
 
@@ -1170,12 +1465,29 @@ export default function Home() {
                 </button>
               </div>
               <div className="finality-explainer-content">
-                <FinalityTimingDiagram timing={finalityTiming} />
+                {expertMode ? (
+                  <ExpertTimingDiagram timing={protocolTiming} />
+                ) : (
+                  <FinalityTimingDiagram timing={finalityTiming} />
+                )}
               </div>
             </div>
           </section>
 
-          <div className="improvement-toolbar" aria-label="Timing improvements">
+          <div
+            className={
+              expertMode ? "improvement-toolbar is-expert" : "improvement-toolbar"
+            }
+            aria-label="Timing improvements"
+          >
+            {expertMode ? (
+              <ProtocolPicker
+                finalityRounds={finalityRounds}
+                onSelect={selectProtocol}
+                options={protocolOptions}
+                selected={protocol}
+              />
+            ) : null}
             <div className="improvement-group improvement-networking">
               <div className="control-heading networking-heading">
                 <span>
@@ -1187,7 +1499,9 @@ export default function Home() {
                 />
               </div>
               <div className="improvement-buttons">
-                {ROUND_IMPROVEMENTS.map((improvement) => {
+                {ROUND_IMPROVEMENTS.filter(
+                  (improvement) => !expertMode || improvement.id !== "dc",
+                ).map((improvement) => {
                   const active = enabledImprovementIds.includes(improvement.id);
                   const displayedGain = calculateRoundImprovementGain(
                     improvement.id,
@@ -1286,7 +1600,20 @@ export default function Home() {
             ) : null}
           </div>
 
-          <div className="chart-wrap">
+          {expertMode ? (
+            <TransactionJourney
+              finalityRounds={finalityRounds}
+              onPause={() => setJourneyPaused(true)}
+              onTogglePause={() => setJourneyPaused((current) => !current)}
+              paused={journeyPaused}
+              protocol={protocol}
+              roundSlots={model.roundSlots}
+              slotSeconds={model.slotSeconds}
+              timing={protocolTiming}
+            />
+          ) : null}
+
+          <div className="chart-wrap" ref={chartRef}>
             <div className="range-control chart-axis-control">
               <div className="range-labels">
                 <span className="range-label-copy">
@@ -1348,6 +1675,106 @@ export default function Home() {
               </p>
             </div>
 
+            {expertMode ? (
+              <div className="chart-heading">
+                <div>
+                  <h2>
+                    {showFinalityChart
+                      ? "Expected time to finality"
+                      : "Full-set round time"}
+                  </h2>
+                  <p>
+                    {showFinalityChart
+                      ? `Each protocol at ${slotSeconds}-second slots with ${finalityRounds === 1 ? "one-round" : "two-round"} finality. ${chartScale === "log" ? "Log scale: equal steps show equal ratios." : "Linear scale: absolute differences."}`
+                      : "The standard view’s chart: the round needed for the full validator set."}
+                  </p>
+                </div>
+                <div className="chart-heading-controls">
+                  <div
+                    aria-label="Chart metric"
+                    className="chart-scale-options chart-metric-options"
+                    role="group"
+                  >
+                    {(["finality", "round"] as const).map((metric) => (
+                      <button
+                        aria-pressed={chartMetric === metric}
+                        key={metric}
+                        onClick={() => setChartMetric(metric)}
+                        type="button"
+                      >
+                        {metric === "finality" ? "Finality" : "Round"}
+                      </button>
+                    ))}
+                  </div>
+                  {showFinalityChart ? (
+                    <div className="chart-scale-options" role="group" aria-label="Chart scale">
+                      {(["log", "linear"] as const).map((scale) => (
+                        <button
+                          aria-pressed={chartScale === scale}
+                          key={scale}
+                          onClick={() => setChartScale(scale)}
+                          type="button"
+                        >
+                          {scale === "log" ? "Log" : "Linear"}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {showFinalityChart ? (
+              <>
+                <FinalityTimeChart
+                  chart={expertChart}
+                  finalityRounds={finalityRounds}
+                  networkingImprovements={networkingImprovementIds}
+                  scale={chartScale}
+                  scenarioMaximum={scenarioMaximum}
+                  selectedProtocol={protocol}
+                  selectedValidators={model.validators}
+                  slotSeconds={model.slotSeconds}
+                  snapshotValidators={network.activeValidators}
+                  validatorTicks={expertValidatorTicks}
+                  xFor={expertXFor}
+                />
+                <p className="chart-axis-caption">Validator identities remaining →</p>
+                <p className="mobile-chart-result">
+                  Selected point:{" "}
+                  {protocolTiming.available
+                    ? `${protocolValue(protocolTiming)} expected finality`
+                    : "research needed"}{" "}
+                  · {selectedProtocol.shortLabel}
+                </p>
+                <div className="curve-readouts protocol-readouts">
+                  {protocolOptions.map(({ protocol: option, timing }) => (
+                    <div
+                      className={`curve-readout protocol-readout ${option.strokeClass} ${option.id === protocol ? "is-finality-input" : ""}`}
+                      key={option.id}
+                    >
+                      <i aria-hidden="true" />
+                      <span>
+                        <strong>{option.label}</strong>
+                        <small>{option.summary}</small>
+                      </span>
+                      <b>{protocolValue(timing)}</b>
+                      <em>
+                        {protocolReadoutDetail(timing)}
+                        {option.id === protocol ? " · selected" : ""}
+                      </em>
+                    </div>
+                  ))}
+                </div>
+                <p className="protocol-readout-note">
+                  The dashed teal line is DC’s expected fast confirmation:
+                  inclusion plus one slot. When DC today’s quorum needs every
+                  vote slot of a round, the round runs one more slot so the
+                  next round can vote the new entry.
+                </p>
+              </>
+            ) : (
+              <>
             <svg
               className="capacity-chart"
               viewBox={`0 0 ${chart.width} ${chart.height}`}
@@ -1507,6 +1934,8 @@ export default function Home() {
                   </div>
                 ))}
             </div>
+              </>
+            )}
           </div>
 
         </div>
